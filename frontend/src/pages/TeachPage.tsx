@@ -42,11 +42,11 @@ export function TeachPage() {
   return (
     <section className="relative isolate overflow-hidden bg-tint">
       <div
-        className="pointer-events-none absolute right-[-60px] top-[-80px] -z-10 h-[340px] w-[340px] rounded-full bg-[#FFD9C9] opacity-60 blur-3xl"
+        className="pointer-events-none absolute right-[-60px] top-[-80px] -z-10 h-[340px] w-[340px] rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute bottom-[-60px] left-[30%] -z-10 h-[260px] w-[260px] rounded-full bg-[#CFF4EC] opacity-60 blur-3xl"
+        className="pointer-events-none absolute bottom-[-60px] left-[30%] -z-10 h-[260px] w-[260px] rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
         aria-hidden
       />
       <div className="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 lg:px-8">
@@ -56,7 +56,7 @@ export function TeachPage() {
           <span className="relative whitespace-nowrap text-primary">
             Become an instructor.
             <svg
-              className="absolute -bottom-2 left-0 w-full"
+              className="absolute -bottom-2 left-0 h-3 w-full"
               viewBox="0 0 200 12"
               preserveAspectRatio="none"
               aria-hidden
@@ -81,13 +81,13 @@ export function TeachPage() {
           {!isAuthenticated && (
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" asChild>
-                <Link to="/signup">
+                <Link to="/signup?role=instructor">
                   Sign up to start teaching
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link to="/login">I already have an account</Link>
+                <Link to="/login?role=instructor">I already have an account</Link>
               </Button>
             </div>
           )}

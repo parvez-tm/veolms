@@ -4,19 +4,19 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer",
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground hover:bg-primary-strong hover:-translate-y-0.5',
+          'bg-primary text-primary-foreground border-2 border-ink shadow-[2px_3px_0_var(--ink)] hover:bg-primary-strong hover:-translate-y-0.5 hover:shadow-[3px_5px_0_var(--ink)] active:translate-y-0 active:shadow-[1px_1px_0_var(--ink)]',
         destructive:
-          'bg-destructive text-destructive-foreground hover:brightness-95',
+          'bg-destructive text-destructive-foreground border-2 border-ink shadow-[2px_3px_0_var(--ink)] hover:brightness-95 hover:-translate-y-0.5 hover:shadow-[3px_5px_0_var(--ink)] active:translate-y-0 active:shadow-[1px_1px_0_var(--ink)]',
         outline:
-          'border-2 border-foreground bg-background text-foreground hover:bg-foreground hover:text-background',
+          'border-2 border-ink bg-card text-foreground shadow-[2px_3px_0_var(--ink)] hover:-translate-y-0.5 hover:bg-secondary hover:shadow-[3px_5px_0_var(--ink)] active:translate-y-0 active:shadow-[1px_1px_0_var(--ink)]',
         secondary:
-          'bg-secondary text-secondary-foreground hover:brightness-[0.97]',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
+          'bg-secondary text-secondary-foreground border-2 border-ink shadow-[2px_3px_0_var(--ink)] hover:brightness-[0.97] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_var(--ink)]',
+        ghost: 'hover:bg-accent hover:text-accent-foreground active:scale-[0.98]',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

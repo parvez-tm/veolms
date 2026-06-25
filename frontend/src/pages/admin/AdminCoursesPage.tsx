@@ -6,6 +6,7 @@ import {
   usePublishCourse,
   useDeleteCourse,
 } from '@/features/admin/api'
+import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
 
@@ -18,9 +19,11 @@ export function AdminCoursesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-16 -right-10 -z-10 h-56 w-56 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-1/3 -z-10 h-48 w-48 rounded-full bg-[#CFF4EC] opacity-60 blur-3xl" />
+      <div className="relative">
+        <Decor className="rounded-[22px]">
+          <div className="absolute -top-16 -right-10 h-56 w-56 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
+          <div className="absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl" />
+        </Decor>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="eyebrow">Admin</span>
@@ -31,7 +34,7 @@ export function AdminCoursesPage() {
                 <svg
                   viewBox="0 0 200 12"
                   preserveAspectRatio="none"
-                  className="absolute -bottom-1.5 left-0 w-full"
+                  className="absolute -bottom-1.5 left-0 h-3 w-full"
                   aria-hidden="true"
                 >
                   <path

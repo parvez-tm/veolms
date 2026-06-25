@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, IndianRupee, Sparkles } from 'lucide-react'
 import { useCreateCourse } from '@/features/admin/api'
 import { apiErrorMessage } from '@/lib/api'
+import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const
@@ -21,10 +23,12 @@ export function NewCoursePage() {
   const [priceRupees, setPriceRupees] = useState('0')
   const [error, setError] = useState('')
 
+  const rupees = Number(priceRupees)
+  const isFree = !Number.isFinite(rupees) || rupees <= 0
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    const rupees = Number(priceRupees)
     if (!Number.isFinite(rupees) || rupees < 0) {
       setError('Enter a valid price (₹0 for free)')
       return
@@ -49,24 +53,37 @@ export function NewCoursePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Button variant="ghost" size="sm" asChild className="mb-4">
+    <div className="mx-auto max-w-3xl">
+      <Button variant="ghost" size="sm" asChild className="mb-5">
         <Link to="/admin/courses">
           <ArrowLeft className="h-4 w-4" />
           Back to courses
         </Link>
       </Button>
 
-      <span className="eyebrow">New course</span>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Create a course</h1>
-      <p className="mt-2 text-muted-foreground">
-        Start with the basics. You can add sections, lessons and videos next.
-      </p>
+      {/* Header */}
+      <div className="relative mb-6">
+        <Decor className="rounded-[22px]">
+          <div className="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
+          <div className="absolute -bottom-16 left-1/4 h-44 w-44 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl" />
+        </Decor>
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 border-ink bg-primary text-white shadow-[2px_3px_0_var(--ink)]">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <div>
+            <span className="eyebrow">New course</span>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
+              Create a course
+            </h1>
+            <p className="mt-1.5 font-medium text-muted-foreground">
+              Start with the basics — you can add sections, lessons and videos next.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="pop mt-6 space-y-5 p-6"
-      >
+      <form onSubmit={onSubmit} className="pop space-y-6 p-6 sm:p-8">
         <div className="space-y-2">
           <Label htmlFor="title">Title</Label>
           <Input
@@ -96,47 +113,62 @@ export function NewCoursePage() {
             rows={5}
           />
         </div>
+
+        {/* Divider */}
+        <div className="border-t-2 border-dashed border-border" />
+
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="level">Level</Label>
-            <select
+            <Select
               id="level"
               value={level}
-              onChange={(e) => setLevel(e.target.value as (typeof LEVELS)[number])}
-              className="flex h-11 w-full rounded-xl border-2 border-border bg-background px-3.5 py-2 text-sm font-medium capitalize transition-colors focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              {LEVELS.map((l) => (
-                <option key={l} value={l} className="bg-background capitalize">
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="price">Price (₹)</Label>
-            <Input
-              id="price"
-              type="number"
-              min={0}
-              step="1"
-              value={priceRupees}
-              onChange={(e) => setPriceRupees(e.target.value)}
+              onChange={(v) => setLevel(v as (typeof LEVELS)[number])}
+              options={LEVELS.map((l) => ({ value: l, label: l }))}
+              className="capitalize"
             />
-            <p className="text-xs text-muted-foreground">Set 0 for a free course.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="price">Price</Label>
+            <div className="relative">
+              <IndianRupee className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="price"
+                type="number"
+                min={0}
+                step="1"
+                value={priceRupees}
+                onChange={(e) => setPriceRupees(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <span
+              className={
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ' +
+                (isFree
+                  ? 'bg-teal/15 text-teal'
+                  : 'bg-secondary text-primary-strong')
+              }
+            >
+              {isFree
+                ? 'Free course — anyone can enroll'
+                : `Students pay ₹${rupees.toLocaleString('en-IN')} once`}
+            </span>
           </div>
         </div>
 
         {error && (
-          <p className="rounded-xl bg-destructive/10 px-3.5 py-2 text-sm font-medium text-destructive">
+          <p className="rounded-xl border-2 border-destructive/20 bg-destructive/10 px-3.5 py-2.5 text-sm font-semibold text-destructive">
             {error}
           </p>
         )}
 
-        <div className="flex gap-3">
-          <Button type="submit" disabled={create.isPending}>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <Button type="submit" size="lg" disabled={create.isPending}>
             {create.isPending ? 'Creating…' : 'Create course'}
           </Button>
-          <Button type="button" variant="outline" asChild>
+          <Button type="button" size="lg" variant="outline" asChild>
             <Link to="/admin/courses">Cancel</Link>
           </Button>
         </div>

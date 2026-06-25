@@ -1,5 +1,6 @@
 import { IndianRupee, ShoppingBag, Users } from 'lucide-react'
 import { useAllPayments, type PaymentRow } from '@/features/admin/sales'
+import { Decor } from '@/components/layout/Decor'
 import { formatPrice } from '@/lib/utils'
 
 function statusPill(status: PaymentRow['status']) {
@@ -46,8 +47,10 @@ export function AdminSalesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -right-10 -top-16 -z-10 h-56 w-56 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl" />
+      <div className="relative">
+        <Decor className="rounded-[22px]">
+          <div className="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
+        </Decor>
         <span className="eyebrow">Revenue</span>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
           Sales &amp; enrollments

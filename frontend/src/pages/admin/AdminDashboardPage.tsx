@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { BookOpen, CheckCircle2, FileEdit, Plus, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useManagedCourses } from '@/features/admin/api'
+import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
 
@@ -42,9 +43,12 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-16 -right-10 -z-10 h-64 w-64 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 -z-10 h-56 w-56 rounded-full bg-[#CFF4EC] opacity-60 blur-3xl" />
+      <div className="relative">
+        <Decor className="rounded-[22px] bg-dots">
+          <div className="absolute -top-16 -right-10 h-64 w-64 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl" />
+          <div className="absolute top-0 right-1/3 h-44 w-44 rounded-full bg-[#c8c0ff] opacity-45 blur-3xl" />
+        </Decor>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="eyebrow">Dashboard</span>

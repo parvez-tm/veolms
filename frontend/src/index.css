@@ -8,7 +8,7 @@
 :root {
   --radius: 1rem;
 
-  --background: #ffffff;
+  --background: #fffaf6;
   --foreground: #23202b;
   --card: #ffffff;
   --card-foreground: #23202b;
@@ -31,10 +31,12 @@
   --input: #ddd3d4;
   --ring: #ff5a3c;
 
-  --tint: #fff6f1;
-  --tint2: #f1fbf8;
+  --tint: #fff1e9;
+  --tint2: #e9faf5;
   --amber: #ffb020;
   --teal: #13b6a4;
+  --violet: #7c6bff;
+  --ink: #23202b;
 }
 
 @theme inline {
@@ -62,6 +64,8 @@
   --color-tint2: var(--tint2);
   --color-amber: var(--amber);
   --color-teal: var(--teal);
+  --color-violet: var(--violet);
+  --color-ink: var(--ink);
 
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
@@ -110,18 +114,35 @@
   .font-grotesk {
     font-family: 'Space Grotesk', monospace;
   }
-  /* Signature card: ink outline + soft offset shadow. */
+  /* Signature card: ink outline + crisp solid offset shadow. */
   .pop {
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--ink);
     border-radius: 18px;
     background: var(--card);
-    box-shadow: 6px 8px 0 rgba(35, 32, 43, 0.06);
+    box-shadow: 4px 5px 0 var(--ink);
   }
   .pop-hover {
     transition: transform 0.16s ease, box-shadow 0.16s ease;
   }
   .pop-hover:hover {
-    transform: translate(-2px, -3px);
-    box-shadow: 10px 14px 0 rgba(35, 32, 43, 0.12);
+    transform: translate(-3px, -4px);
+    box-shadow: 9px 12px 0 var(--ink);
+  }
+  /* Softer card variant — same language, lighter weight for dense areas. */
+  .pop-soft {
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 3px 3px 0 rgba(35, 32, 43, 0.16);
+  }
+  /* Subtle dotted texture for hero / section grounds. */
+  .bg-dots {
+    background-image: radial-gradient(rgba(35, 32, 43, 0.07) 1.4px, transparent 1.5px);
+    background-size: 22px 22px;
+  }
+  /* Tiny ink-shadow tag/badge. */
+  .tag {
+    border: 1.5px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
   }
 }

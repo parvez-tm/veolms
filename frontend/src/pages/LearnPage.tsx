@@ -40,7 +40,7 @@ export function LearnPage() {
   if (progressQuery.isError) {
     return (
       <div className="relative mx-auto max-w-lg px-4 py-24 text-center">
-        <div className="pointer-events-none absolute -top-10 right-10 -z-10 h-56 w-56 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl" />
+        <div className="pointer-events-none absolute -top-10 right-10 -z-10 h-56 w-56 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
         <span className="eyebrow">Locked</span>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">
           You’re not enrolled

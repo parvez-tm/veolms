@@ -14,13 +14,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-[calc(100svh-4rem)] lg:grid-cols-2">
       {/* Left: brand panel (desktop) */}
-      <aside className="relative hidden overflow-hidden bg-tint px-12 lg:flex lg:flex-col lg:justify-center">
+      <aside className="bg-dots relative hidden overflow-hidden border-r-2 border-ink bg-tint px-12 lg:flex lg:flex-col lg:justify-center">
         <div
-          className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-[#FFD9C9] opacity-70 blur-3xl"
+          className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-[#CFF4EC] opacity-70 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute right-10 top-12 h-56 w-56 rounded-full bg-[#c8c0ff] opacity-45 blur-3xl"
           aria-hidden
         />
         <div className="relative max-w-md">
@@ -39,7 +43,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 viewBox="0 0 200 12"
                 preserveAspectRatio="none"
                 aria-hidden
-                className="absolute -bottom-2 left-0 w-full"
+                className="absolute -bottom-2 left-0 h-3 w-full"
               >
                 <path
                   d="M2 8 C 50 2, 150 2, 198 8"

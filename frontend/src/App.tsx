@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { Layout } from '@/components/layout/Layout'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -8,6 +9,9 @@ import { CourseDetailPage } from '@/pages/CourseDetailPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { TeachPage } from '@/pages/TeachPage'
+import { AboutPage } from '@/pages/AboutPage'
+import { PricingPage } from '@/pages/PricingPage'
+import { ContactPage } from '@/pages/ContactPage'
 import { MyLearningPage } from '@/pages/MyLearningPage'
 import { LearnPage } from '@/pages/LearnPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
@@ -19,7 +23,9 @@ import { NotFoundPage, ForbiddenPage } from '@/pages/NotFoundPage'
 
 function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* Public + student (with site chrome) */}
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
@@ -28,6 +34,9 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/teach" element={<TeachPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/forbidden" element={<ForbiddenPage />} />
 
         <Route element={<ProtectedRoute />}>
@@ -48,7 +57,8 @@ function App() {
           <Route path="sales" element={<AdminSalesPage />} />
         </Route>
       </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }
 

@@ -30,9 +30,18 @@ export function Navbar() {
           <span className="text-lg tracking-tight">VeoLMS</span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
+          <NavLink to="/" end className={linkClass}>
+            Home
+          </NavLink>
           <NavLink to="/courses" className={linkClass}>
             Courses
+          </NavLink>
+          <NavLink to="/pricing" className={linkClass}>
+            Pricing
+          </NavLink>
+          <NavLink to="/about" className={linkClass}>
+            About
           </NavLink>
           {isAuthenticated && (
             <NavLink to="/my-learning" className={linkClass}>

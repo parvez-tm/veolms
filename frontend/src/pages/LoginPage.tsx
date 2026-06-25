@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { apiErrorMessage } from '@/lib/api'
 import { AuthShell } from '@/components/AuthShell'
@@ -11,7 +11,11 @@ export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [params] = useSearchParams()
   const from = (location.state as { from?: string } | null)?.from
+  // Arrived from a "teach" CTA — a Student logging in here wants to teach, so
+  // send them to /teach to upgrade. Existing instructors/admins still go to /admin.
+  const asInstructor = params.get('role') === 'instructor'
 
   const [userDetail, setUserDetail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,11 +28,10 @@ export function LoginPage() {
     setLoading(true)
     try {
       const user = await login(userDetail, password)
+      const isAuthor =
+        user.roleName === 'Admin' || user.roleName === 'Instructor'
       const dest =
-        from ??
-        (user.roleName === 'Admin' || user.roleName === 'Instructor'
-          ? '/admin'
-          : '/my-learning')
+        from ?? (isAuthor ? '/admin' : asInstructor ? '/teach' : '/my-learning')
       navigate(dest, { replace: true })
     } catch (err) {
       setError(apiErrorMessage(err, 'Login failed'))
@@ -93,7 +96,10 @@ export function LoginPage() {
 
         <p className="mt-6 text-center text-sm font-medium text-muted-foreground">
           New to VeoLMS?{' '}
-          <Link to="/signup" className="font-bold text-primary-strong hover:underline">
+          <Link
+            to={asInstructor ? '/signup?role=instructor' : '/signup'}
+            className="font-bold text-primary-strong hover:underline"
+          >
             Create an account
           </Link>
         </p>

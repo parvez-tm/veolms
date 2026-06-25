@@ -38,12 +38,12 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full max-w-lg rounded-2xl border-2 border-foreground bg-card shadow-[8px_10px_0_rgba(35,32,43,0.12)]',
+          'relative z-10 w-full max-w-lg rounded-2xl border-2 border-ink bg-card shadow-[8px_10px_0_var(--ink)]',
           className
         )}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h3 className="font-semibold">{title}</h3>
+        <div className="flex items-center justify-between border-b-2 border-border px-5 py-4">
+          <h3 className="font-bold tracking-tight">{title}</h3>
           <button
             type="button"
             onClick={onClose}

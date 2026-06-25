@@ -109,11 +109,11 @@ export function CourseDetailPage() {
       <section className="relative isolate overflow-hidden bg-tint">
         {/* pastel blobs */}
         <div
-          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-24 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#CFF4EC] opacity-60 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
           aria-hidden
         />
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-16">

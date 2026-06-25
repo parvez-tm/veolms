@@ -28,18 +28,22 @@ export function HomePage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative isolate overflow-hidden bg-tint">
+      <section className="bg-dots relative isolate overflow-hidden border-b-2 border-ink bg-tint">
         {/* pastel blobs */}
         <div
-          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-[360px] w-[360px] rounded-full bg-[#FFD9C9] opacity-60 blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-[380px] w-[380px] rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-24 left-[28%] -z-10 h-[300px] w-[300px] rounded-full bg-[#CFF4EC] opacity-60 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 left-[24%] -z-10 h-[320px] w-[320px] rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -left-20 top-1/3 -z-10 h-[260px] w-[260px] rounded-full bg-[#c8c0ff] opacity-50 blur-3xl"
           aria-hidden
         />
 
-        <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6 lg:px-8 lg:py-32">
+        <div className="mx-auto max-w-3xl px-4 pb-24 pt-14 text-center sm:px-6 lg:px-8 lg:pb-32 lg:pt-20">
           <span className="eyebrow inline-flex items-center gap-1.5">
             <Star className="h-3.5 w-3.5 fill-amber text-amber" />
             Hands-on developer courses
@@ -53,7 +57,7 @@ export function HomePage() {
                 viewBox="0 0 200 12"
                 preserveAspectRatio="none"
                 aria-hidden
-                className="absolute -bottom-2 left-0 w-full"
+                className="absolute -bottom-2 left-0 h-3 w-full"
               >
                 <path
                   d="M2 8 C 50 2, 150 2, 198 8"
@@ -102,15 +106,17 @@ export function HomePage() {
           </div>
 
           {/* stat strip */}
-          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-6 border-t border-border pt-8">
+          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-4">
             {[
-              { k: 'Expert', v: 'Courses' },
-              { k: 'HD video', v: 'Streaming' },
-              { k: 'Lifetime', v: 'Access' },
+              { k: 'Expert', v: 'Courses', c: 'text-primary-strong' },
+              { k: 'HD video', v: 'Streaming', c: 'text-teal' },
+              { k: 'Lifetime', v: 'Access', c: 'text-violet' },
             ].map((s) => (
-              <div key={s.v}>
-                <p className="font-grotesk text-xl font-bold sm:text-2xl">{s.k}</p>
-                <p className="text-sm text-muted-foreground">{s.v}</p>
+              <div key={s.v} className="pop-soft rounded-2xl bg-card px-3 py-4">
+                <p className={'font-grotesk text-xl font-bold sm:text-2xl ' + s.c}>
+                  {s.k}
+                </p>
+                <p className="text-sm font-medium text-muted-foreground">{s.v}</p>
               </div>
             ))}
           </div>

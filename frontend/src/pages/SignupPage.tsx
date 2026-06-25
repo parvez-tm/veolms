@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { apiErrorMessage } from '@/lib/api'
 import { AuthShell } from '@/components/AuthShell'
@@ -8,8 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function SignupPage() {
-  const { register } = useAuth()
+  const { register, becomeInstructor } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // "Sign up to start teaching" links here with ?role=instructor. Accounts are
+  // always created as a Student (the backend never trusts a client-sent role);
+  // for the instructor intent we immediately promote via become-instructor.
+  const asInstructor = params.get('role') === 'instructor'
 
   const [form, setForm] = useState({
     firstName: '',
@@ -34,7 +39,18 @@ export function SignupPage() {
     setLoading(true)
     try {
       await register(form)
-      navigate('/my-learning', { replace: true })
+      if (asInstructor) {
+        try {
+          await becomeInstructor()
+          navigate('/admin', { replace: true })
+        } catch {
+          // Account was created (as a Student) but the upgrade failed — send them
+          // to the Teach page where they can retry becoming an instructor.
+          navigate('/teach', { replace: true })
+        }
+      } else {
+        navigate('/my-learning', { replace: true })
+      }
     } catch (err) {
       setError(apiErrorMessage(err, 'Registration failed'))
     } finally {
@@ -56,12 +72,14 @@ export function SignupPage() {
       </Link>
 
       <div className="pop p-8">
-        <span className="eyebrow">Join free</span>
+        <span className="eyebrow">{asInstructor ? 'Become an instructor' : 'Join free'}</span>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight">
-          Create your account
+          {asInstructor ? 'Create your instructor account' : 'Create your account'}
         </h1>
         <p className="mt-2 font-medium text-muted-foreground">
-          Start learning in minutes. It’s free.
+          {asInstructor
+            ? 'Sign up free and your instructor dashboard is ready instantly.'
+            : 'Start learning in minutes. It’s free.'}
         </p>
 
         <form onSubmit={onSubmit} className="mt-7 space-y-5">
@@ -104,13 +122,22 @@ export function SignupPage() {
             </p>
           )}
           <Button type="submit" size="lg" className="w-full" disabled={loading}>
-            {loading ? 'Creating account…' : 'Sign up'}
+            {asInstructor
+              ? loading
+                ? 'Setting up…'
+                : 'Sign up & start teaching'
+              : loading
+                ? 'Creating account…'
+                : 'Sign up'}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm font-medium text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="font-bold text-primary-strong hover:underline">
+          <Link
+            to={asInstructor ? '/login?role=instructor' : '/login'}
+            className="font-bold text-primary-strong hover:underline"
+          >
             Log in
           </Link>
         </p>

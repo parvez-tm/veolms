@@ -23,6 +23,7 @@ import {
 } from '@/features/admin/manage'
 import { apiErrorMessage } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
+import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LessonFormModal } from '@/components/admin/LessonFormModal'
@@ -107,9 +108,11 @@ export function CourseManagePage() {
       </Button>
 
       {/* Header */}
-      <div className="pop relative overflow-hidden p-6">
-        <div className="pointer-events-none absolute -right-12 -top-16 -z-10 h-56 w-56 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-1/3 -z-10 h-48 w-48 rounded-full bg-[#CFF4EC] opacity-60 blur-3xl" />
+      <div className="pop relative p-6">
+        <Decor className="rounded-[16px]">
+          <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full bg-[#ffb59c] opacity-70 blur-3xl" />
+          <div className="absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl" />
+        </Decor>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="eyebrow">Manage course</span>

@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
 import { useUpdateCourse } from '@/features/admin/manage'
@@ -76,18 +77,13 @@ export function CourseDetailsModal({
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="cLevel">Level</Label>
-            <select
+            <Select
               id="cLevel"
               value={level}
-              onChange={(e) => setLevel(e.target.value as (typeof LEVELS)[number])}
-              className="flex h-11 w-full rounded-xl border-2 border-border bg-background px-3.5 py-2 text-sm font-medium capitalize transition-colors focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              {LEVELS.map((l) => (
-                <option key={l} value={l} className="bg-background capitalize">
-                  {l}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setLevel(v as (typeof LEVELS)[number])}
+              options={LEVELS.map((l) => ({ value: l, label: l }))}
+              className="capitalize"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cPrice">Price (₹)</Label>
