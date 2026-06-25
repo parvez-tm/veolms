@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+/*
+ * VeoLMS theme — "Campus": vibrant & friendly. Warm white ground, a confident
+ * coral primary with amber/teal supports, bold ink-outlined cards with soft
+ * offset shadows, pill buttons, Plus Jakarta Sans + Space Grotesk. Light theme.
+ */
+:root {
+  --radius: 1rem;
+
+  --background: #ffffff;
+  --foreground: #23202b;
+  --card: #ffffff;
+  --card-foreground: #23202b;
+  --popover: #ffffff;
+  --popover-foreground: #23202b;
+
+  --primary: #ff5a3c;
+  --primary-foreground: #ffffff;
+  --primary-strong: #e8421f;
+  --secondary: #fff1ec;
+  --secondary-foreground: #23202b;
+  --muted: #f5f1f2;
+  --muted-foreground: #6c6776;
+  --accent: #fff1ec;
+  --accent-foreground: #23202b;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+
+  --border: #ece4e5;
+  --input: #ddd3d4;
+  --ring: #ff5a3c;
+
+  --tint: #fff6f1;
+  --tint2: #f1fbf8;
+  --amber: #ffb020;
+  --teal: #13b6a4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-tint: var(--tint);
+  --color-tint2: var(--tint2);
+  --color-amber: var(--amber);
+  --color-teal: var(--teal);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Space Grotesk uppercase label, in strong coral. */
+  .eyebrow {
+    font-family: 'Space Grotesk', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--primary-strong);
+  }
+  .font-display {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .font-grotesk {
+    font-family: 'Space Grotesk', monospace;
+  }
+  /* Signature card: ink outline + soft offset shadow. */
+  .pop {
+    border: 2px solid var(--foreground);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 6px 8px 0 rgba(35, 32, 43, 0.06);
+  }
+  .pop-hover {
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+  .pop-hover:hover {
+    transform: translate(-2px, -3px);
+    box-shadow: 10px 14px 0 rgba(35, 32, 43, 0.12);
+  }
+}

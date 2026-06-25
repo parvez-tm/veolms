@@ -1,0 +1,33 @@
+# Postgres and Redis are hosted separately (managed instances). The app only
+# needs their connection URLs. Provide values via a .env file or the shell.
+services:
+  api:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+
+      # Managed Postgres + Redis (set to your hosted instances)
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_SSL: ${DATABASE_SSL:-true}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL}
+
+      # Cloudflare R2 (S3-compatible) for video/file storage
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PLAYBACK_TTL: ${R2_PLAYBACK_TTL:-300}
+
+      # Razorpay (payments, test mode for the challenge)
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+
+      SEED_ON_START: ${SEED_ON_START:-true}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

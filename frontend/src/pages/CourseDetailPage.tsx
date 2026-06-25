@@ -1,0 +1,288 @@
+import { useState } from 'react'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
+import {
+  PlayCircle,
+  Lock,
+  Video,
+  FileText,
+  BookOpen,
+  CheckCircle2,
+  Settings,
+} from 'lucide-react'
+import { useCourseDetail } from '@/features/courses/detail'
+import { useMyEnrollments, useCheckout } from '@/features/enrollment/api'
+import { useAuth } from '@/context/AuthContext'
+import { apiErrorMessage } from '@/lib/api'
+import { formatPrice } from '@/lib/utils'
+import { formatDuration } from '@/lib/video'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { VideoPlayer } from '@/components/VideoPlayer'
+import type { Lesson } from '@/types'
+
+export function CourseDetailPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user, isAuthenticated, isAdmin } = useAuth()
+  const { data: course, isLoading, isError } = useCourseDetail(id)
+  const { data: enrollments } = useMyEnrollments()
+  const startCheckout = useCheckout()
+
+  const [preview, setPreview] = useState<Lesson | null>(null)
+  const [buying, setBuying] = useState(false)
+  const [error, setError] = useState('')
+
+  if (isLoading) {
+    return <div className="mx-auto max-w-5xl px-4 py-20 text-muted-foreground">Loading…</div>
+  }
+  if (isError || !course) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-20 text-center text-muted-foreground">
+        Course not found.{' '}
+        <Link to="/courses" className="font-semibold text-primary-strong hover:underline">
+          Browse courses
+        </Link>
+      </div>
+    )
+  }
+
+  const sections = course.sections ?? []
+  const lessons = sections.flatMap((s) => s.lessons ?? [])
+  const isFree = !course.price || course.price <= 0
+  const enrolled = enrollments?.some((e) => e.courseId === course.id) ?? false
+  const canManage = isAdmin || (!!user && course.instructorId === user.id)
+  const instructor = course.instructor
+    ? `${course.instructor.firstName ?? ''} ${course.instructor.lastName ?? ''}`.trim() ||
+      course.instructor.userName ||
+      'VeoLMS'
+    : 'VeoLMS'
+
+  const onBuy = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+    setError('')
+    setBuying(true)
+    try {
+      const ok = await startCheckout(course)
+      if (ok) navigate(`/learn/${course.id}`)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Payment could not be completed'))
+    } finally {
+      setBuying(false)
+    }
+  }
+
+  const PurchaseCTA = () => {
+    if (canManage) {
+      return (
+        <Button className="w-full" asChild>
+          <Link to={`/admin/courses/${course.id}`}>
+            <Settings className="h-4 w-4" />
+            Manage course
+          </Link>
+        </Button>
+      )
+    }
+    if (enrolled) {
+      return (
+        <Button className="w-full" asChild>
+          <Link to={`/learn/${course.id}`}>
+            <PlayCircle className="h-4 w-4" />
+            Go to course
+          </Link>
+        </Button>
+      )
+    }
+    return (
+      <Button className="w-full" onClick={onBuy} disabled={buying}>
+        {buying ? 'Processing…' : isFree ? 'Enroll for free' : `Buy for ${formatPrice(course.price, course.currency)}`}
+      </Button>
+    )
+  }
+
+  return (
+    <>
+      {/* Hero */}
+      <section className="relative isolate overflow-hidden bg-tint">
+        {/* pastel blobs */}
+        <div
+          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#FFD9C9] opacity-60 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-24 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#CFF4EC] opacity-60 blur-3xl"
+          aria-hidden
+        />
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-16">
+          {/* Left: info */}
+          <div className="lg:col-span-2">
+            <Link
+              to="/courses"
+              className="font-grotesk text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              ← All courses
+            </Link>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+              {course.title}
+            </h1>
+            {course.subtitle && (
+              <p className="mt-4 max-w-2xl text-lg font-medium text-muted-foreground">
+                {course.subtitle}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span className="rounded-full bg-secondary px-3 py-1 font-semibold capitalize text-primary-strong">
+                {course.level}
+              </span>
+              {course.category && (
+                <span className="rounded-full bg-tint2 px-3 py-1 font-semibold text-teal">
+                  {course.category.name}
+                </span>
+              )}
+              <span className="font-grotesk font-medium">{lessons.length} lessons</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="font-medium">By {instructor}</span>
+            </div>
+            {course.description && (
+              <div className="mt-9">
+                <span className="eyebrow">About this course</span>
+                <p className="mt-3 max-w-2xl whitespace-pre-line leading-relaxed text-foreground/90">
+                  {course.description}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: purchase card */}
+          <div className="lg:col-span-1">
+            <div className="pop overflow-hidden lg:sticky lg:top-20">
+              <div className="aspect-video w-full">
+                {course.thumbnail ? (
+                  <img src={course.thumbnail} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-amber text-white">
+                    <BookOpen className="h-12 w-12" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-4 p-5">
+                <p className="text-3xl font-extrabold tracking-tight text-primary-strong">
+                  {formatPrice(course.price, course.currency)}
+                </p>
+                <PurchaseCTA />
+                {error && (
+                  <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+                    {error}
+                  </p>
+                )}
+                <ul className="space-y-2.5 pt-1 text-sm text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-teal" /> Full lifetime access
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-teal" /> {lessons.length} lessons across {sections.length} sections
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-teal" /> Learn at your own pace
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Curriculum */}
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="lg:max-w-3xl">
+          <span className="eyebrow">Curriculum</span>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight">What you'll learn</h2>
+          <p className="mt-2 font-grotesk text-muted-foreground">
+            {sections.length} sections · {lessons.length} lessons
+          </p>
+
+          <div className="mt-7 space-y-5">
+            {sections.map((section) => (
+              <div key={section.id} className="pop overflow-hidden">
+                <div className="border-b-2 border-foreground/10 px-5 py-3.5 font-bold">
+                  {section.title}
+                </div>
+                <ul className="divide-y divide-border">
+                  {(section.lessons ?? []).map((lesson) => {
+                    const playable = lesson.isPreview && !!lesson.videoUrl
+                    return (
+                      <li
+                        key={lesson.id}
+                        className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-tint"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary-strong">
+                            {lesson.type === 'video' ? (
+                              <Video className="h-4 w-4" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                          </span>
+                          <span className="truncate font-medium">{lesson.title}</span>
+                          {lesson.isPreview ? (
+                            <span className="shrink-0 rounded-full bg-amber px-2.5 py-0.5 text-xs font-bold text-white">
+                              preview
+                            </span>
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          {lesson.type === 'video' && formatDuration(lesson.videoDurationSec) && (
+                            <span className="font-grotesk text-xs text-muted-foreground">
+                              {formatDuration(lesson.videoDurationSec)}
+                            </span>
+                          )}
+                          {playable && (
+                            <button
+                              onClick={() => setPreview(lesson)}
+                              className="inline-flex items-center gap-1 text-sm font-semibold text-primary-strong hover:underline"
+                            >
+                              <PlayCircle className="h-4 w-4" />
+                              Preview
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                  {(section.lessons ?? []).length === 0 && (
+                    <li className="px-5 py-3.5 text-sm text-muted-foreground">
+                      No lessons yet.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            ))}
+            {sections.length === 0 && (
+              <p className="rounded-2xl border-2 border-dashed border-border px-4 py-10 text-center text-muted-foreground">
+                Curriculum coming soon.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <Modal
+        open={!!preview}
+        onClose={() => setPreview(null)}
+        title={preview?.title ?? 'Preview'}
+        className="max-w-3xl"
+      >
+        {preview?.videoUrl ? (
+          <VideoPlayer source="external" url={preview.videoUrl} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Preview not available.</p>
+        )}
+      </Modal>
+    </>
+  )
+}

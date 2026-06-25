@@ -1,0 +1,24 @@
+# Root .gitignore — belt-and-suspenders for the whole monorepo.
+# (backend/ and frontend/ have their own .gitignore too.)
+
+# Dependencies & build output
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.tsbuildinfo
+
+# Secrets / environment — NEVER commit real env files (commit .env.example only)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+**/*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

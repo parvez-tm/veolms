@@ -1,0 +1,44 @@
+{
+  "name": "veolms-backend",
+  "version": "1.0.0",
+  "description": "VeoLMS backend API (Express + Sequelize/Postgres + Redis)",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node ./dist/app.js",
+    "dev": "tsx watch src/app.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dompurify": "^3.4.11",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.1",
+    "ioredis": "^5.11.1",
+    "jsdom": "^29.1.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "pg": "^8.22.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsdom": "^28.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
