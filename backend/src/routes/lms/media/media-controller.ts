@@ -6,11 +6,13 @@ import { isAdminOrOwner } from '../../../middleware/role-middleware';
 import {
   isStorageConfigured,
   buildStorageKey,
+  buildCourseKey,
   createUploadUrl,
   headObject,
   getObjectText,
   signGetUrl,
 } from '../../../services/storage-service';
+import { loadOwnedCourse } from '../course-access';
 import {
   purgeAsset,
   assetReferenceCount,
@@ -19,12 +21,12 @@ import {
 } from '../../../services/media-service';
 import { transcodeToHls } from '../../../services/hls-service';
 import { verifyHlsTicket, HLS_TTL_SECONDS } from '../../../services/hls-ticket';
-import { nonNegInt, parseId } from '../../../helpers/parse-id';
+import { bodyId, nonNegInt, parseId } from '../../../helpers/parse-id';
 
 const KINDS: MediaKind[] = ['video', 'image', 'file'];
 const KEY_PREFIX: Record<MediaKind, string> = {
   video: 'videos',
-  image: 'images',
+  image: 'thumbnails',
   file: 'files',
 };
 const CONTENT_TYPE_RULES: Record<MediaKind, RegExp> = {
@@ -42,7 +44,7 @@ export const requestUploadUrl = async (
     throw new ApiError(503, 'Media storage (R2) is not configured');
   }
 
-  const { kind, contentType, originalName } = req.body ?? {};
+  const { kind, contentType, originalName, courseId } = req.body ?? {};
   if (!kind || !KINDS.includes(kind)) {
     throw new ApiError(400, 'kind must be video, image, or file');
   }
@@ -53,11 +55,19 @@ export const requestUploadUrl = async (
     throw new ApiError(400, `Invalid contentType for a ${kind} upload`);
   }
 
-  const key = buildStorageKey(
-    KEY_PREFIX[kind as MediaKind],
-    req.user!.id,
-    typeof originalName === 'string' ? originalName : 'upload'
-  );
+  const name = typeof originalName === 'string' ? originalName : 'upload';
+  const prefix = KEY_PREFIX[kind as MediaKind];
+
+  // When a courseId is supplied, group the object under that course's folder
+  // (course/<id>/...). Ownership is enforced so an instructor can only write
+  // into their own course's folder.
+  let key: string;
+  if (courseId !== undefined && courseId !== null) {
+    const course = await loadOwnedCourse(bodyId(courseId, 'courseId'), req.user);
+    key = buildCourseKey(course.id, prefix, name);
+  } else {
+    key = buildStorageKey(prefix, req.user!.id, name);
+  }
 
   const asset = await MediaAsset.create({
     storageKey: key,

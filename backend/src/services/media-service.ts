@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { MediaAsset, MediaKind } from '../routes/lms/media/media-asset-model';
 import { Lesson } from '../routes/lms/lesson/lesson-model';
+import { Course } from '../routes/lms/course/course-model';
 import { User } from '../routes/control/user/user-model';
 import { isStorageConfigured, deleteObject, deletePrefix } from './storage-service';
 
@@ -66,13 +67,14 @@ export async function purgeAssetsByIds(
   }
 }
 
-/** How many lessons / user avatars currently reference an asset. */
+/** How many lessons / user avatars / course thumbnails currently reference an asset. */
 export async function assetReferenceCount(assetId: number): Promise<number> {
-  const [lessons, users] = await Promise.all([
+  const [lessons, users, courses] = await Promise.all([
     Lesson.count({ where: { videoAssetId: assetId } }),
     User.count({ where: { avatarAssetId: assetId } }),
+    Course.count({ where: { thumbnailAssetId: assetId } }),
   ]);
-  return lessons + users;
+  return lessons + users + courses;
 }
 
 /**

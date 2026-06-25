@@ -58,7 +58,7 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
         if (videoMode === 'upload') {
           if (file) {
             setProgress(0)
-            videoAssetId = await uploadVideo(file, setProgress)
+            videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
             setProgress(null)
           } else if (!editing) {
             setError('Choose a video file to upload')

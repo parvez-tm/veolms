@@ -20,17 +20,50 @@ interface UploadUrlResponse {
  */
 export async function uploadVideo(
   file: File,
+  courseId?: number | null,
   onProgress?: (percent: number) => void
 ): Promise<number> {
   const { data } = await api.post<UploadUrlResponse>('/media/upload-url', {
     kind: 'video',
     contentType: file.type || 'video/mp4',
     originalName: file.name,
+    ...(courseId != null ? { courseId } : {}),
   })
   const { assetId, uploadUrl } = data.data
 
   await axios.put(uploadUrl, file, {
     headers: { 'Content-Type': file.type || 'video/mp4' },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    },
+  })
+
+  await api.post(`/media/confirm/${assetId}`)
+  return assetId
+}
+
+/**
+ * Upload an image straight to R2 (same presigned-PUT flow as video) and return
+ * the assetId — attach it to a course via `thumbnailAssetId`.
+ */
+export async function uploadImage(
+  file: File,
+  courseId?: number | null,
+  onProgress?: (percent: number) => void
+): Promise<number> {
+  const contentType = file.type || 'image/jpeg'
+  const { data } = await api.post<UploadUrlResponse>('/media/upload-url', {
+    kind: 'image',
+    contentType,
+    originalName: file.name,
+    ...(courseId != null ? { courseId } : {}),
+  })
+  const { assetId, uploadUrl } = data.data
+
+  await axios.put(uploadUrl, file, {
+    headers: { 'Content-Type': contentType },
     onUploadProgress: (e) => {
       if (onProgress && e.total) {
         onProgress(Math.round((e.loaded / e.total) * 100))

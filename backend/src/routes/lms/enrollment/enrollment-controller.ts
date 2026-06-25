@@ -9,6 +9,10 @@ import { ApiError } from '../../../types/interface';
 import { isAdminOrOwner } from '../../../middleware/role-middleware';
 import { parseId, bodyId } from '../../../helpers/parse-id';
 import { isFreeCourse } from '../course/course-pricing';
+import {
+  THUMBNAIL_ASSET_INCLUDE,
+  resolveThumbnailUrl,
+} from '../course/course-thumbnail';
 
 /** Self-enroll the current user in a published course. */
 export const enroll = async (req: Request, res: Response): Promise<void> => {
@@ -82,6 +86,7 @@ export const myCourses = async (req: Request, res: Response): Promise<void> => {
         as: 'course',
         include: [
           { model: User, as: 'instructor', attributes: ['id', 'firstName', 'lastName'] },
+          THUMBNAIL_ASSET_INCLUDE,
         ],
       },
     ],
@@ -96,7 +101,17 @@ export const myCourses = async (req: Request, res: Response): Promise<void> => {
         }),
       ]);
       const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-      return { ...e.toJSON(), progress: { total, completed, percent } };
+      // Resolve the course cover to its display URL (presigned for uploads).
+      const thumbnailUrl = e.course ? await resolveThumbnailUrl(e.course) : null;
+      const json = e.toJSON() as {
+        course?: { thumbnail?: string | null; thumbnailAsset?: unknown };
+        [key: string]: unknown;
+      };
+      if (json.course) {
+        json.course.thumbnail = thumbnailUrl;
+        delete json.course.thumbnailAsset;
+      }
+      return { ...json, progress: { total, completed, percent } };
     })
   );
 

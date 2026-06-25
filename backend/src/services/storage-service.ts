@@ -33,15 +33,32 @@ function getClient(): S3Client {
   return client;
 }
 
+/** Sanitized, collision-resistant filename: <timestamp>-<rand>-<name>. */
+function uniqueName(originalName: string): string {
+  const safe = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60) || 'file';
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${unique}-${safe}`;
+}
+
 /** Build a namespaced, sanitized object key: <prefix>/<userId>/<unique>-<name>. */
 export function buildStorageKey(
   prefix: string,
   userId: number,
   originalName: string
 ): string {
-  const safe = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60) || 'file';
-  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return `${prefix}/${userId}/${unique}-${safe}`;
+  return `${prefix}/${userId}/${uniqueName(originalName)}`;
+}
+
+/**
+ * Course-scoped object key: course/<courseId>/<prefix>/<unique>-<name>. Keeps all
+ * of a course's media (videos, images) grouped under one folder in the bucket.
+ */
+export function buildCourseKey(
+  courseId: number,
+  prefix: string,
+  originalName: string
+): string {
+  return `course/${courseId}/${prefix}/${uniqueName(originalName)}`;
 }
 
 /**

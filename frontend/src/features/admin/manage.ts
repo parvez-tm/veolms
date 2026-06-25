@@ -44,6 +44,8 @@ export interface CourseDetailsInput {
   title?: string
   subtitle?: string | null
   description?: string | null
+  thumbnail?: string | null
+  thumbnailAssetId?: number | null
   level?: 'beginner' | 'intermediate' | 'advanced'
   price?: number
 }

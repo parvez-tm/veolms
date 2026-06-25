@@ -4,6 +4,7 @@ import { ArrowLeft, IndianRupee, Sparkles } from 'lucide-react'
 import { useCreateCourse } from '@/features/admin/api'
 import { apiErrorMessage } from '@/lib/api'
 import { Decor } from '@/components/layout/Decor'
+import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +20,7 @@ export function NewCoursePage() {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [description, setDescription] = useState('')
+  const [thumbnail, setThumbnail] = useState<ThumbnailValue>({ assetId: null, url: '' })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('beginner')
   const [priceRupees, setPriceRupees] = useState('0')
   const [error, setError] = useState('')
@@ -38,10 +40,16 @@ export function NewCoursePage() {
       return
     }
     try {
+      // An uploaded image (assetId) takes precedence; otherwise an external URL.
+      const thumb =
+        thumbnail.assetId != null
+          ? { thumbnailAssetId: thumbnail.assetId }
+          : { thumbnail: thumbnail.url.trim() || undefined }
       const course = await create.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || undefined,
         description: description.trim() || undefined,
+        ...thumb,
         level,
         price: Math.round(rupees * 100), // ₹ -> paise
       })
@@ -113,6 +121,8 @@ export function NewCoursePage() {
             rows={5}
           />
         </div>
+
+        <ThumbnailField value={thumbnail} onChange={setThumbnail} />
 
         {/* Divider */}
         <div className="border-t-2 border-dashed border-border" />

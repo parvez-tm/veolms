@@ -43,6 +43,7 @@ export interface Course {
   subtitle?: string | null
   description?: string | null
   thumbnail?: string | null
+  thumbnailAssetId?: number | null
   price: number // paise
   currency: string
   level: CourseLevel

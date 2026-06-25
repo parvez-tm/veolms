@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
 import { apiErrorMessage } from '@/lib/api'
 import { useUpdateCourse } from '@/features/admin/manage'
 import type { Course } from '@/types'
@@ -24,6 +25,11 @@ export function CourseDetailsModal({
   const [title, setTitle] = useState(course.title)
   const [subtitle, setSubtitle] = useState(course.subtitle ?? '')
   const [description, setDescription] = useState(course.description ?? '')
+  const [thumbnail, setThumbnail] = useState<ThumbnailValue>(
+    course.thumbnailAssetId
+      ? { assetId: course.thumbnailAssetId, url: '' }
+      : { assetId: null, url: course.thumbnail ?? '' }
+  )
   const [level, setLevel] = useState<(typeof LEVELS)[number]>(course.level)
   const [priceRupees, setPriceRupees] = useState(String((course.price ?? 0) / 100))
   const [error, setError] = useState('')
@@ -37,10 +43,16 @@ export function CourseDetailsModal({
       return
     }
     try {
+      // Uploaded image (assetId) wins; otherwise the external URL (null clears it).
+      const thumb =
+        thumbnail.assetId != null
+          ? { thumbnailAssetId: thumbnail.assetId }
+          : { thumbnail: thumbnail.url.trim() || null }
       await update.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || null,
         description: description.trim() || null,
+        ...thumb,
         level,
         price: Math.round(rupees * 100),
       })
@@ -74,6 +86,13 @@ export function CourseDetailsModal({
             rows={5}
           />
         </div>
+
+        <ThumbnailField
+          value={thumbnail}
+          onChange={setThumbnail}
+          previewFallback={course.thumbnail}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="cLevel">Level</Label>

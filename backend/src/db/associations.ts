@@ -70,6 +70,10 @@ export function defineAssociations(): void {
   MediaAsset.hasMany(User, { foreignKey: 'avatarAssetId', onDelete: 'SET NULL' });
   User.belongsTo(MediaAsset, { foreignKey: 'avatarAssetId', as: 'avatar' });
 
+  // Course thumbnail -> media asset (detached, not cascaded, if the asset is removed).
+  MediaAsset.hasMany(Course, { foreignKey: 'thumbnailAssetId', onDelete: 'SET NULL' });
+  Course.belongsTo(MediaAsset, { foreignKey: 'thumbnailAssetId', as: 'thumbnailAsset' });
+
   // Payments (purchase records). Mirror the enrollment lifecycle: removing a
   // user/course removes their payment rows too. (A production system would
   // soft-delete to preserve the financial audit trail — documented tradeoff.)

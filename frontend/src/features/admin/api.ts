@@ -17,6 +17,8 @@ export interface NewCourseInput {
   title: string
   subtitle?: string
   description?: string
+  thumbnail?: string
+  thumbnailAssetId?: number | null
   level: 'beginner' | 'intermediate' | 'advanced'
   price: number // paise
 }

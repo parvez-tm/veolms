@@ -125,7 +125,12 @@ export async function transcodeToHls(assetId: number): Promise<void> {
   await asset.save();
 
   const dir = await mkdtemp(join(tmpdir(), `veohls-${assetId}-`));
-  const prefix = `hls/${assetId}/`;
+  // Nest the HLS output under the same course folder as the raw upload
+  // (course/<id>/hls/<assetId>/), falling back to the flat layout otherwise.
+  const courseScope = asset.storageKey.match(/^(course\/\d+)\//);
+  const prefix = courseScope
+    ? `${courseScope[1]}/hls/${assetId}/`
+    : `hls/${assetId}/`;
   try {
     // 1. download the raw upload
     await writeFile(join(dir, 'input'), await getObjectBuffer(asset.storageKey));

@@ -15,6 +15,12 @@ import {
 import { bodyId } from '../../../helpers/parse-id';
 import { validateCoursePrice } from './course-pricing';
 import {
+  THUMBNAIL_ASSET_INCLUDE,
+  resolveThumbnailUrl,
+  serializeCourse,
+  validateThumbnailAsset,
+} from './course-thumbnail';
+import {
   calculatePaginationInfo,
   parseRequestParams,
 } from '../../../helpers/filters';
@@ -55,12 +61,13 @@ export const getCatalog = async (req: Request, res: Response): Promise<void> => 
     include: [
       { model: Category, as: 'category' },
       { model: User, as: 'instructor', attributes: INSTRUCTOR_ATTRS },
+      THUMBNAIL_ASSET_INCLUDE,
     ],
     distinct: true,
   });
 
   res.status(200).json({
-    data: rows,
+    data: await Promise.all(rows.map(serializeCourse)),
     pagination: calculatePaginationInfo(count, limit, page),
   });
 };
@@ -80,12 +87,13 @@ export const getAllCourses = async (
     include: [
       { model: Category, as: 'category' },
       { model: User, as: 'instructor', attributes: INSTRUCTOR_ATTRS },
+      THUMBNAIL_ASSET_INCLUDE,
     ],
     distinct: true,
   });
 
   res.status(200).json({
-    data: rows,
+    data: await Promise.all(rows.map(serializeCourse)),
     pagination: calculatePaginationInfo(count, limit, page),
   });
 };
@@ -102,12 +110,12 @@ export const getMyCourses = async (
     order,
     limit,
     offset,
-    include: [{ model: Category, as: 'category' }],
+    include: [{ model: Category, as: 'category' }, THUMBNAIL_ASSET_INCLUDE],
     distinct: true,
   });
 
   res.status(200).json({
-    data: rows,
+    data: await Promise.all(rows.map(serializeCourse)),
     pagination: calculatePaginationInfo(count, limit, page),
   });
 };
@@ -121,6 +129,7 @@ export const getCourseById = async (
     include: [
       { model: Category, as: 'category' },
       { model: User, as: 'instructor', attributes: INSTRUCTOR_ATTRS },
+      THUMBNAIL_ASSET_INCLUDE,
       {
         model: Section,
         as: 'sections',
@@ -168,6 +177,9 @@ export const getCourseById = async (
     sections?: Array<{ lessons?: LessonJSON[] }>;
     [key: string]: unknown;
   };
+  // Replace the stored value with the resolved display URL; drop the internal asset.
+  data.thumbnail = await resolveThumbnailUrl(course);
+  delete data.thumbnailAsset;
   if (!owner && !enrolled) {
     for (const section of data.sections ?? []) {
       for (const lesson of section.lessons ?? []) {
@@ -184,7 +196,7 @@ export const getCourseById = async (
 };
 
 export const addCourse = async (req: Request, res: Response): Promise<void> => {
-  const { title, subtitle, description, categoryId, level, thumbnail, price } =
+  const { title, subtitle, description, categoryId, level, thumbnail, thumbnailAssetId, price } =
     req.body ?? {};
   if (!title) {
     throw new ApiError(400, 'Course title is required');
@@ -193,18 +205,31 @@ export const addCourse = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError(400, 'level must be beginner, intermediate, or advanced');
   }
 
+  // An uploaded image takes precedence; otherwise an external URL (or neither).
+  let thumbAssetId: number | null = null;
+  let thumb: string | null = null;
+  if (thumbnailAssetId !== undefined && thumbnailAssetId !== null) {
+    thumbAssetId = await validateThumbnailAsset(thumbnailAssetId, req.user);
+  } else if (thumbnail) {
+    thumb = String(thumbnail);
+  }
+
   const course = await Course.create({
     title,
     subtitle: subtitle ?? null,
     description: description ?? null,
     categoryId: await resolveCategoryId(categoryId),
     level: level ?? 'beginner',
-    thumbnail: thumbnail ?? null,
+    thumbnail: thumb,
+    thumbnailAssetId: thumbAssetId,
     // price is in paise (₹1 = 100); defaults to 0 (free) when omitted.
     price: price === undefined ? 0 : validateCoursePrice(price),
     instructorId: req.user!.id,
   });
-  res.status(201).json({ data: course, message: 'Course created successfully' });
+  res.status(201).json({
+    data: await serializeCourse(course),
+    message: 'Course created successfully',
+  });
 };
 
 export const updateCourse = async (
@@ -213,22 +238,44 @@ export const updateCourse = async (
 ): Promise<void> => {
   const course = await loadOwnedCourse(req.params.id, req.user);
 
-  const { title, subtitle, description, categoryId, level, thumbnail, price } =
+  const { title, subtitle, description, categoryId, level, thumbnail, thumbnailAssetId, price } =
     req.body ?? {};
   if (level && !LEVELS.includes(level)) {
     throw new ApiError(400, 'level must be beginner, intermediate, or advanced');
   }
+
+  const previousAssetId = course.thumbnailAssetId ?? null;
 
   if (title !== undefined) course.title = title;
   if (subtitle !== undefined) course.subtitle = subtitle;
   if (description !== undefined) course.description = description;
   if (categoryId !== undefined) course.categoryId = await resolveCategoryId(categoryId);
   if (level !== undefined) course.level = level;
-  if (thumbnail !== undefined) course.thumbnail = thumbnail;
+  // Thumbnail: an uploaded image (thumbnailAssetId) wins; otherwise an external
+  // URL string (`thumbnail`, null/'' clears it). Setting one detaches the other.
+  if (thumbnailAssetId !== undefined && thumbnailAssetId !== null) {
+    course.thumbnailAssetId = await validateThumbnailAsset(thumbnailAssetId, req.user);
+    course.thumbnail = null;
+  } else if (thumbnail !== undefined) {
+    course.thumbnail = thumbnail || null;
+    course.thumbnailAssetId = null;
+  }
   if (price !== undefined) course.price = validateCoursePrice(price);
   await course.save();
 
-  res.status(200).json({ data: course, message: 'Course updated successfully' });
+  // Replaced/removed image is now unreferenced — purge the old R2 object + row.
+  if (
+    previousAssetId &&
+    previousAssetId !== course.thumbnailAssetId &&
+    (await assetReferenceCount(previousAssetId)) === 0
+  ) {
+    await purgeAssetsByIds([previousAssetId]);
+  }
+
+  res.status(200).json({
+    data: await serializeCourse(course),
+    message: 'Course updated successfully',
+  });
 };
 
 export const publishCourse = async (
@@ -268,9 +315,10 @@ export const deleteCourse = async (
     attributes: ['videoAssetId'],
   });
   const candidateIds = [
-    ...new Set(
-      lessons.map((l) => l.videoAssetId).filter((v): v is number => v != null)
-    ),
+    ...new Set([
+      ...lessons.map((l) => l.videoAssetId).filter((v): v is number => v != null),
+      ...(course.thumbnailAssetId ? [course.thumbnailAssetId] : []),
+    ]),
   ];
 
   await course.destroy(); // cascades sections, lessons, enrollments, progress
