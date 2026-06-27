@@ -92,8 +92,9 @@ Base path: `/api`. All routes except `POST /api/user/login` require a
 | Media (R2) | `POST /media/upload-url`, `POST /media/confirm/:id`, `DELETE /media/:id`, `POST /media/cleanup` (Admin) |
 | Payment (Razorpay) | `POST /payment/create-order`, `POST /payment/verify`, `POST /payment/webhook` (no JWT, HMAC-signed), `GET /payment/my-payments`, `GET /payment/all` (Admin), `POST /payment/cleanup` (Admin) |
 
-Lessons are `video` or `text` (sanitized HTML). A video lesson is either an external
-URL (`videoUrl`, e.g. YouTube) **or** an R2-hosted upload (`videoAssetId`). Publishing
+Lessons are `video` or `text` (sanitized HTML). A video lesson's source is always an
+R2-hosted upload (`videoAssetId`); external video URLs are not supported (all video is
+delivered as private, encrypted HLS, so it can't be downloaded). Publishing
 requires at least one lesson; a draft course's content is visible only to its
 instructor/Admin; non-preview lessons require enrollment. Completing every lesson
 auto-completes the enrollment.
@@ -157,7 +158,8 @@ the image (in the Dockerfile) and an **R2 bucket CORS** rule allowing `GET` from
 frontend origin (hls.js fetches segments cross-origin). If ffmpeg is unavailable the
 transcode fails gracefully and playback falls back to a presigned MP4.
 
-If R2 env vars are unset, media endpoints return `503` and external-URL lessons still work.
+If R2 env vars are unset, media and video-playback endpoints return `503`; only text
+lessons work (there is no external-URL fallback).
 
 **Profile avatars** also live in R2 (`users.avatarAssetId`): `addUser`/`updateUser`
 accept a `profileImage` file (multipart, with the JSON body in a `data` field), uploaded
@@ -179,14 +181,14 @@ lost. `POST /media/cleanup` (Admin) sweeps abandoned `pending` uploads **and** r
 > no single downloadable file and the Network-tab segments are encrypted. This is far
 > stronger than a signed MP4, but it is **not DRM**: within the ticket window a determined
 > enrolled user could still script ffmpeg, and screen-capture defeats any web player. Full
-> stop requires DRM (Widevine/FairPlay). External **YouTube** lessons are inherently public
-> and not protected by this.
+> stop requires DRM (Widevine/FairPlay). Because external video URLs aren't allowed, every
+> lesson video goes through this protected path.
 
 On a fresh (empty) database the seeder also creates demo logins (dev only; change
 for production) and a demo catalog of **4 published courses** (JavaScript, React, Node,
 and a **free** CSS course), each with 2 sections, 5 video/text lessons, and a free
-preview. The lesson videos are public tutorial placeholders; swap them for your own via
-the admin panel.
+preview. Video lessons are seeded **without a source** (video is upload-only); upload your
+own clips to them from the admin panel and they start playing.
 
 | Role | Email | Password |
 | --- | --- | --- |

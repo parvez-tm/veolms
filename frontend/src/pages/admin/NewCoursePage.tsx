@@ -34,7 +34,7 @@ export function NewCoursePage() {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [description, setDescription] = useState('')
-  const [thumbnail, setThumbnail] = useState<ThumbnailValue>({ assetId: null, url: '' })
+  const [thumbnail, setThumbnail] = useState<ThumbnailValue>({ assetId: null })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('beginner')
   // Empty = free (₹0). Kept empty (with a "0" placeholder) so there's no leading
   // zero to delete before typing a price.
@@ -56,11 +56,9 @@ export function NewCoursePage() {
       return
     }
     try {
-      // An uploaded image (assetId) takes precedence; otherwise an external URL.
+      // The cover is an uploaded image asset (R2), or none.
       const thumb =
-        thumbnail.assetId != null
-          ? { thumbnailAssetId: thumbnail.assetId }
-          : { thumbnail: thumbnail.url.trim() || undefined }
+        thumbnail.assetId != null ? { thumbnailAssetId: thumbnail.assetId } : {}
       const course = await create.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || undefined,

@@ -96,6 +96,18 @@
   ::selection {
     background: color-mix(in srgb, var(--primary) 28%, transparent);
   }
+  /*
+   * Tailwind v4's Preflight resets interactive controls to `cursor: default`.
+   * Restore the pointer cursor for clickable controls (disabled ones keep the
+   * default arrow). Non-button click targets get `cursor-pointer` per element.
+   */
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
 }
 
 @layer utilities {

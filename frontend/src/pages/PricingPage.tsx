@@ -46,7 +46,7 @@ const PLANS = [
     desc: 'Share what you know and earn from your courses.',
     features: [
       'Free instructor dashboard',
-      'Publish video & YouTube lessons',
+      'Upload secure, streaming video lessons',
       'Appear in the public catalog',
       'Set your own price or go free',
     ],

@@ -26,11 +26,9 @@ export function CourseDetailsModal({
   const [title, setTitle] = useState(course.title)
   const [subtitle, setSubtitle] = useState(course.subtitle ?? '')
   const [description, setDescription] = useState(course.description ?? '')
-  const [thumbnail, setThumbnail] = useState<ThumbnailValue>(
-    course.thumbnailAssetId
-      ? { assetId: course.thumbnailAssetId, url: '' }
-      : { assetId: null, url: course.thumbnail ?? '' }
-  )
+  const [thumbnail, setThumbnail] = useState<ThumbnailValue>({
+    assetId: course.thumbnailAssetId ?? null,
+  })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>(course.level)
   // Empty = free (₹0); avoids a leading zero the user has to clear before typing.
   const [priceRupees, setPriceRupees] = useState(
@@ -47,11 +45,8 @@ export function CourseDetailsModal({
       return
     }
     try {
-      // Uploaded image (assetId) wins; otherwise the external URL (null clears it).
-      const thumb =
-        thumbnail.assetId != null
-          ? { thumbnailAssetId: thumbnail.assetId }
-          : { thumbnail: thumbnail.url.trim() || null }
+      // Cover is an uploaded image asset (R2); null clears it.
+      const thumb = { thumbnailAssetId: thumbnail.assetId }
       await update.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || null,

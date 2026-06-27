@@ -12,11 +12,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CourseCard, CourseCardSkeleton } from '@/features/courses/CourseCard'
 import { useCatalog } from '@/features/courses/api'
+import { useAuth } from '@/context/AuthContext'
 
 export function HomePage() {
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
   const { data: courses, isLoading } = useCatalog()
+  const { isAuthenticated, dashboardPath } = useAuth()
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault()
@@ -94,15 +96,31 @@ export function HomePage() {
           </form>
 
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Button size="lg" asChild>
-              <Link to="/courses">
-                Explore courses
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link to="/signup">Start free</Link>
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Button size="lg" asChild>
+                  <Link to={dashboardPath}>
+                    Go to dashboard
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/courses">Explore courses</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="lg" asChild>
+                  <Link to="/courses">
+                    Explore courses
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/signup">Start free</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* stat strip */}
@@ -217,14 +235,16 @@ export function HomePage() {
             aria-hidden
           />
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
-            Start learning today
+            {isAuthenticated ? 'Keep the momentum going' : 'Start learning today'}
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-medium text-background/70">
-            Join free, enroll in your first course, and build something real this week.
+            {isAuthenticated
+              ? 'Jump back into your dashboard and pick up where you left off.'
+              : 'Join free, enroll in your first course, and build something real this week.'}
           </p>
           <Button size="lg" asChild className="mt-8">
-            <Link to="/signup">
-              Create free account
+            <Link to={isAuthenticated ? dashboardPath : '/signup'}>
+              {isAuthenticated ? 'Go to dashboard' : 'Create free account'}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

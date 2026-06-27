@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { apiErrorMessage } from '@/lib/api'
 import { AuthShell } from '@/components/AuthShell'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, isAuthenticated, dashboardPath } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [params] = useSearchParams()
@@ -38,6 +38,11 @@ export function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Already signed in (e.g. returning with a valid token): skip the form.
+  if (isAuthenticated) {
+    return <Navigate to={from ?? dashboardPath} replace />
   }
 
   return (

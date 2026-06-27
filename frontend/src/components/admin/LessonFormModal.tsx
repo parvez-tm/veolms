@@ -26,10 +26,6 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
   const [type, setType] = useState<'video' | 'text'>(lesson?.type ?? 'video')
   const [isPreview, setIsPreview] = useState(lesson?.isPreview ?? false)
   const [content, setContent] = useState(lesson?.content ?? '')
-  const [videoMode, setVideoMode] = useState<'url' | 'upload'>(
-    lesson?.videoAssetId ? 'upload' : 'url'
-  )
-  const [videoUrl, setVideoUrl] = useState(lesson?.videoUrl ?? '')
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -51,37 +47,24 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
     }
     setBusy(true)
     try {
-      // Resolve the video source if needed.
+      // Upload the chosen video file to private storage (R2) and attach the asset.
       let videoAssetId: number | undefined
-      let resolvedUrl: string | undefined
       if (type === 'video') {
-        if (videoMode === 'upload') {
-          if (file) {
-            setProgress(0)
-            videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
-            setProgress(null)
-          } else if (!editing) {
-            setError('Choose a video file to upload')
-            setBusy(false)
-            return
-          }
-        } else {
-          if (!videoUrl.trim() && !editing) {
-            setError('Enter a video URL (e.g. a YouTube link)')
-            setBusy(false)
-            return
-          }
-          resolvedUrl = videoUrl.trim() || undefined
+        if (file) {
+          setProgress(0)
+          videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
+          setProgress(null)
+        } else if (!editing) {
+          setError('Choose a video file to upload')
+          setBusy(false)
+          return
         }
       }
 
       if (editing) {
         const payload: Record<string, unknown> = { id: lesson!.id, title: title.trim(), isPreview }
         if (type === 'text') payload.content = content
-        if (type === 'video') {
-          if (videoAssetId) payload.videoAssetId = videoAssetId
-          else if (resolvedUrl) payload.videoUrl = resolvedUrl
-        }
+        if (type === 'video' && videoAssetId) payload.videoAssetId = videoAssetId
         await updateLesson.mutateAsync(payload as { id: number } & Partial<LessonInput>)
       } else {
         const payload: LessonInput = {
@@ -91,10 +74,7 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
           isPreview,
         }
         if (type === 'text') payload.content = content
-        if (type === 'video') {
-          if (videoAssetId) payload.videoAssetId = videoAssetId
-          else payload.videoUrl = resolvedUrl
-        }
+        if (type === 'video' && videoAssetId) payload.videoAssetId = videoAssetId
         await addLesson.mutateAsync(payload)
       }
       reset()
@@ -144,58 +124,39 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
         )}
 
         {type === 'video' ? (
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              {(['url', 'upload'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setVideoMode(m)}
-                  className={
-                    'flex-1 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-colors ' +
-                    (videoMode === m
-                      ? 'border-primary bg-secondary text-primary-strong'
-                      : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground')
-                  }
-                >
-                  {m === 'url' ? 'YouTube / URL' : 'Upload video'}
-                </button>
-              ))}
-            </div>
-
-            {videoMode === 'url' ? (
-              <div className="space-y-2">
-                <Label htmlFor="videoUrl">Video URL</Label>
-                <Input
-                  id="videoUrl"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=…"
+          <div className="space-y-2">
+            <Label htmlFor="videoFile">Video file</Label>
+            <label
+              htmlFor="videoFile"
+              className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl border-2 border-input bg-card pl-1.5 pr-3.5 text-sm font-medium transition-all focus-within:border-ink focus-within:shadow-[3px_3px_0_var(--ink)]"
+            >
+              <span className="shrink-0 rounded-lg bg-secondary px-3 py-1.5 font-semibold text-primary-strong">
+                Choose file
+              </span>
+              <span className="min-w-0 truncate text-muted-foreground">
+                {file ? file.name : 'No file chosen'}
+              </span>
+              <input
+                id="videoFile"
+                type="file"
+                accept="video/*"
+                className="sr-only"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {progress !== null && (
+              <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
                 />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="videoFile">Video file</Label>
-                <Input
-                  id="videoFile"
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="cursor-pointer file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-1 file:font-semibold file:text-primary-strong"
-                />
-                {progress !== null && (
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Uploaded straight to private storage (R2). Needs storage configured.
-                </p>
               </div>
             )}
+            {/* <p className="text-xs text-muted-foreground">
+              {editing
+                ? 'Upload a new file to replace the current video. Stored privately and streamed as encrypted video.'
+                : 'Uploaded straight to private storage (R2) and streamed as encrypted video, so it can’t be downloaded. Needs storage configured.'}
+            </p> */}
           </div>
         ) : (
           <div className="space-y-2">

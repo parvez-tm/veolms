@@ -36,6 +36,9 @@ function useCourseInvalidator(courseId: string | number) {
   return () => {
     qc.invalidateQueries({ queryKey: ['course', String(courseId)] })
     qc.invalidateQueries({ queryKey: ['managed-courses'] })
+    // Keep the public Browse catalog in sync: publishing or editing a course
+    // (title/price/thumbnail) should show up there without a hard reload.
+    qc.invalidateQueries({ queryKey: ['catalog'] })
   }
 }
 
@@ -44,7 +47,6 @@ export interface CourseDetailsInput {
   title?: string
   subtitle?: string | null
   description?: string | null
-  thumbnail?: string | null
   thumbnailAssetId?: number | null
   level?: 'beginner' | 'intermediate' | 'advanced'
   price?: number
@@ -115,7 +117,6 @@ export interface LessonInput {
   isPreview?: boolean
   position?: number
   content?: string | null
-  videoUrl?: string | null
   videoAssetId?: number | null
   videoDurationSec?: number | null
 }

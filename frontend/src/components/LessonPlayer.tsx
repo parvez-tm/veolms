@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Maximize, PictureInPicture2 } from 'lucide-react'
 import type HlsJs from 'hls.js'
-import { loadYouTubeAPI, youTubeId, type YTPlayer } from '@/lib/youtube'
 import { cn } from '@/lib/utils'
 
 export interface LessonPlayerProps {
-  source: 'r2' | 'external' | 'hls'
+  source: 'r2' | 'hls'
   url: string
   /** Resume position in seconds. */
   startAt?: number
@@ -17,68 +16,6 @@ export interface LessonPlayerProps {
 
 const FRAME =
   'aspect-video w-full overflow-hidden rounded-2xl border-2 border-foreground bg-black'
-
-/** YouTube playback via the IFrame API, which enables resume + progress + completion. */
-function YouTubePlayer({
-  videoId,
-  startAt = 0,
-  onProgress,
-  onEnded,
-}: { videoId: string } & Omit<LessonPlayerProps, 'source' | 'url'>) {
-  const hostRef = useRef<HTMLDivElement>(null)
-  const cb = useRef({ startAt, onProgress, onEnded })
-  cb.current = { startAt, onProgress, onEnded }
-
-  useEffect(() => {
-    let player: YTPlayer | null = null
-    let interval: number | undefined
-    let cancelled = false
-
-    loadYouTubeAPI().then((YT) => {
-      if (cancelled || !hostRef.current) return
-      const mount = document.createElement('div')
-      hostRef.current.appendChild(mount)
-      player = new YT.Player(mount, {
-        videoId,
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: (e) => {
-            if (cb.current.startAt > 5) e.target.seekTo(cb.current.startAt, true)
-          },
-          onStateChange: (e) => {
-            if (e.data === YT.PlayerState.ENDED) cb.current.onEnded?.()
-          },
-        },
-      })
-      interval = window.setInterval(() => {
-        if (!player?.getCurrentTime) return
-        const t = Math.floor(player.getCurrentTime())
-        if (t > 0) cb.current.onProgress?.(t)
-      }, 10_000)
-    })
-
-    return () => {
-      cancelled = true
-      if (interval) clearInterval(interval)
-      try {
-        player?.destroy()
-      } catch {
-        /* ignore */
-      }
-      if (hostRef.current) hostRef.current.innerHTML = ''
-    }
-  }, [videoId])
-
-  return (
-    <div
-      ref={hostRef}
-      className={cn(
-        FRAME,
-        'relative [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full'
-      )}
-    />
-  )
-}
 
 /** Native (R2 / direct file) playback with resume, progress, speed, PiP & shortcuts. */
 function NativeVideoPlayer({
@@ -282,7 +219,5 @@ function NativeVideoPlayer({
 }
 
 export function LessonPlayer({ source, url, ...rest }: LessonPlayerProps) {
-  const ytId = source === 'external' ? youTubeId(url) : null
-  if (ytId) return <YouTubePlayer videoId={ytId} {...rest} />
   return <NativeVideoPlayer url={url} isHls={source === 'hls'} {...rest} />
 }

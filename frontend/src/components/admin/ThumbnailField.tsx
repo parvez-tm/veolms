@@ -2,24 +2,21 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { ImageIcon, Loader2, RefreshCw, X } from 'lucide-react'
 import { uploadImage } from '@/lib/upload'
 import { apiErrorMessage } from '@/lib/api'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 export interface ThumbnailValue {
-  /** Uploaded image asset id (preferred when set). */
+  /** Uploaded image asset id, or null when there's no cover. */
   assetId: number | null
-  /** Externally-hosted image URL (used when no upload). */
-  url: string
 }
 
 const MAX_MB = 5
 
 /**
  * Course thumbnail picker: a 16:9 dropzone you can click or drag-and-drop an
- * image onto (uploaded straight to R2), OR paste an external image URL.
- * `previewFallback` is the already-resolved display URL for a course saved with
- * an uploaded image, so the existing cover shows on edit.
+ * image onto, uploaded straight to private storage (R2). External image URLs
+ * aren't supported. `previewFallback` is the already-resolved display URL for a
+ * course saved with an uploaded image, so the existing cover shows on edit.
  */
 export function ThumbnailField({
   value,
@@ -48,10 +45,8 @@ export function ThumbnailField({
     }
   }, [localPreview])
 
-  // Preview priority: a just-picked file > a typed URL > the existing cover.
-  const preview =
-    localPreview ??
-    (value.url.trim() || (value.assetId ? previewFallback ?? null : null))
+  // Preview priority: a just-picked file > the existing uploaded cover.
+  const preview = localPreview ?? (value.assetId ? previewFallback ?? null : null)
 
   useEffect(() => setBroken(false), [preview])
   const hasImage = !!preview && !broken
@@ -72,7 +67,7 @@ export function ThumbnailField({
     try {
       // Thumbnails live in their own dedicated `thumbnails/` folder (not per-course).
       const assetId = await uploadImage(file, null, setProgress)
-      onChange({ assetId, url: '' })
+      onChange({ assetId })
     } catch (e) {
       setError(apiErrorMessage(e, 'Upload failed. Please try again.'))
       setLocalPreview(null)
@@ -92,13 +87,13 @@ export function ThumbnailField({
   const clear = () => {
     setLocalPreview(null)
     setError('')
-    onChange({ assetId: null, url: '' })
+    onChange({ assetId: null })
     if (fileRef.current) fileRef.current.value = ''
   }
 
   return (
     <div className="space-y-2">
-      {!hideLabel && <Label htmlFor="thumbnailUrl">Thumbnail</Label>}
+      {!hideLabel && <Label>Thumbnail</Label>}
 
       <div
         onDragOver={(e) => {
@@ -195,29 +190,6 @@ export function ThumbnailField({
         onChange={(e) => {
           const f = e.target.files?.[0]
           if (f) void handleFile(f)
-        }}
-      />
-
-      {/* URL alternative */}
-      <div className="flex items-center gap-3 pt-1">
-        <span className="h-0.5 flex-1 rounded-full bg-border" />
-        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-          or paste a URL
-        </span>
-        <span className="h-0.5 flex-1 rounded-full bg-border" />
-      </div>
-
-      <Input
-        id="thumbnailUrl"
-        type="url"
-        inputMode="url"
-        aria-label="Thumbnail image URL"
-        placeholder="https://…/cover.jpg"
-        value={value.url}
-        disabled={uploading}
-        onChange={(e) => {
-          setLocalPreview(null)
-          onChange({ assetId: null, url: e.target.value })
         }}
       />
 

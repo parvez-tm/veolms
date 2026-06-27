@@ -38,23 +38,6 @@ function optionalString(value: unknown, name: string): string | null {
   return value;
 }
 
-/** Validate an external video URL: must be a real http(s) URL (blocks javascript:/data:/file:). */
-function validateVideoUrl(value: unknown): string {
-  if (typeof value !== 'string') {
-    throw new ApiError(400, 'videoUrl must be a string');
-  }
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new ApiError(400, 'videoUrl must be a valid URL');
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new ApiError(400, 'videoUrl must be an http(s) URL');
-  }
-  return value;
-}
-
 /** Verify a video MediaAsset is the user's own, a video, and uploaded. */
 async function resolveVideoAsset(
   rawId: unknown,
@@ -76,23 +59,18 @@ async function resolveVideoAsset(
   return asset.id;
 }
 
-/** Resolve a video lesson's source (external URL XOR R2 asset) + notes. */
+/** Resolve a video lesson's source (an uploaded R2 asset) + optional notes. */
 async function resolveVideoFields(
   body: Record<string, unknown>,
   user: JwtPayload | undefined
 ) {
   const hasAsset = body.videoAssetId !== undefined && body.videoAssetId !== null;
-  const hasUrl = !!body.videoUrl;
-  if (hasAsset && hasUrl) {
-    throw new ApiError(400, 'Provide either videoUrl or videoAssetId, not both');
-  }
-  if (!hasAsset && !hasUrl) {
-    throw new ApiError(400, 'A video lesson requires videoUrl or videoAssetId');
+  if (!hasAsset) {
+    throw new ApiError(400, 'A video lesson requires an uploaded video (videoAssetId)');
   }
   const notes = optionalString(body.content, 'content');
   return {
-    videoUrl: hasUrl ? validateVideoUrl(body.videoUrl) : null,
-    videoAssetId: hasAsset ? await resolveVideoAsset(body.videoAssetId, user) : null,
+    videoAssetId: await resolveVideoAsset(body.videoAssetId, user),
     videoDurationSec:
       body.videoDurationSec === undefined || body.videoDurationSec === null
         ? null
@@ -144,7 +122,6 @@ export const addLesson = async (req: Request, res: Response): Promise<void> => {
   } else {
     contentFields = {
       content: sanitizeData(requireString(req.body.content, 'content')),
-      videoUrl: null,
       videoAssetId: null,
       videoDurationSec: null,
     };
@@ -173,11 +150,11 @@ export const updateLesson = async (
   }
   await loadOwnedCourse(lesson.courseId, req.user);
 
-  const { title, position, isPreview, videoUrl, videoAssetId, videoDurationSec, content } =
+  const { title, position, isPreview, videoAssetId, videoDurationSec, content } =
     req.body ?? {};
 
   // A text lesson cannot acquire a video source.
-  if (lesson.type === 'text' && (videoUrl !== undefined || videoAssetId !== undefined)) {
+  if (lesson.type === 'text' && videoAssetId !== undefined) {
     throw new ApiError(400, 'A text lesson cannot have a video source');
   }
 
@@ -185,15 +162,11 @@ export const updateLesson = async (
   if (position !== undefined) lesson.position = nonNegInt(position, 'position');
   if (isPreview !== undefined) lesson.isPreview = !!isPreview;
 
-  // Switching the video source: setting one clears the other.
+  // The only video source is an uploaded R2 asset. (A video lesson must keep one;
+  // enforced below.)
   if (videoAssetId !== undefined) {
     lesson.videoAssetId =
       videoAssetId === null ? null : await resolveVideoAsset(videoAssetId, req.user);
-    if (lesson.videoAssetId) lesson.videoUrl = null;
-  }
-  if (videoUrl !== undefined) {
-    lesson.videoUrl = videoUrl === null ? null : validateVideoUrl(videoUrl);
-    if (lesson.videoUrl) lesson.videoAssetId = null;
   }
   if (videoDurationSec !== undefined) {
     lesson.videoDurationSec =
@@ -210,17 +183,9 @@ export const updateLesson = async (
     }
   }
 
-  // A video lesson must always keep exactly one source.
-  if (lesson.type === 'video') {
-    const sources = [lesson.videoUrl, lesson.videoAssetId].filter(
-      (v) => v != null
-    ).length;
-    if (sources !== 1) {
-      throw new ApiError(
-        400,
-        'A video lesson must have exactly one of videoUrl or videoAssetId'
-      );
-    }
+  // A video lesson must always keep its uploaded video.
+  if (lesson.type === 'video' && lesson.videoAssetId == null) {
+    throw new ApiError(400, 'A video lesson requires an uploaded video (videoAssetId)');
   }
 
   await lesson.save();
@@ -241,9 +206,9 @@ export const getLessonById = async (
 };
 
 /**
- * Issue a playback source for a lesson's video. For R2-hosted video this is a
- * short-lived presigned URL (the bucket is private); for external video it is
- * the stored URL. Gated by the same access rules as viewing the lesson.
+ * Issue a playback source for a lesson's R2-hosted video: encrypted HLS once it
+ * has transcoded, otherwise a short-lived presigned MP4 (the bucket is private).
+ * Gated by the same access rules as viewing the lesson.
  */
 export const getLessonPlayback = async (
   req: Request,
@@ -292,13 +257,6 @@ export const getLessonPlayback = async (
     res
       .status(200)
       .json({ data: { source: 'r2', url, expiresIn }, message: 'Playback URL issued' });
-    return;
-  }
-
-  if (lesson.videoUrl) {
-    res
-      .status(200)
-      .json({ data: { source: 'external', url: lesson.videoUrl }, message: 'Playback URL issued' });
     return;
   }
 

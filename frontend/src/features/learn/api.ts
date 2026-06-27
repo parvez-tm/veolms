@@ -15,7 +15,7 @@ export interface ProgressSummary {
 }
 
 export interface Playback {
-  source: 'r2' | 'external' | 'hls'
+  source: 'r2' | 'hls'
   url: string
   expiresIn?: number
 }
@@ -30,7 +30,7 @@ export function useCourseProgress(courseId: string | undefined, enabled: boolean
   })
 }
 
-/** Playback source for a video lesson (presigned R2 URL or external URL). */
+/** Playback source for a video lesson (encrypted HLS, or a presigned R2 MP4 fallback). */
 export function usePlayback(lessonId: number | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['playback', lessonId],

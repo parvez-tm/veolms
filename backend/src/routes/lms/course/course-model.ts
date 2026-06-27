@@ -27,9 +27,7 @@ export class Course extends Model<
   declare description: CreationOptional<string | null>;
   declare categoryId: CreationOptional<ForeignKey<number> | null>;
   declare instructorId: ForeignKey<number>;
-  /** Externally-hosted cover image URL (used when no uploaded image is set). */
-  declare thumbnail: CreationOptional<string | null>;
-  /** Uploaded cover image (R2). When set, the display URL is presigned on read. */
+  /** Uploaded cover image (R2). The display URL is presigned on read; external URLs are not supported. */
   declare thumbnailAssetId: CreationOptional<ForeignKey<number> | null>;
   /** Price in the smallest currency unit (paise). 0 = free. */
   declare price: CreationOptional<number>;
@@ -55,7 +53,6 @@ Course.init(
     description: { type: DataTypes.TEXT, allowNull: true },
     categoryId: { type: DataTypes.BIGINT, allowNull: true },
     instructorId: { type: DataTypes.BIGINT, allowNull: false },
-    thumbnail: { type: DataTypes.STRING, allowNull: true },
     thumbnailAssetId: { type: DataTypes.BIGINT, allowNull: true },
     // Money is stored in minor units (paise) as an integer to avoid float drift.
     price: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

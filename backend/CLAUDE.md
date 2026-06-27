@@ -46,7 +46,9 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
 - Routers mounted in [routes.ts](src/routes.ts): `/category /course /section /lesson /enrollment /progress /media /payment`.
 - Demo logins (seeded, dev only): `instructor@veolms.local` / `Instructor@123`,
   `student@veolms.local` / `Student@123`. A demo catalog (4 published courses incl. a free
-  one, each 2 sections × 5 lessons, placeholder YouTube videos) is seeded too.
+  one, each 2 sections × 5 lessons) is seeded too. Video lessons are seeded **without a
+  source** (video is upload-only, so there's nothing to seed); upload real clips from the
+  admin panel and they start playing.
 - **Scope** (per the build challenge): payments → frontend → deploy. **No assessments/
   quizzes**: explicitly out of scope; do not build them.
 
@@ -58,13 +60,15 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
 - **Upload** is direct-to-R2 (the app never proxies bytes): `POST /media/upload-url`
   (instructor) returns a short-lived presigned **PUT**; client uploads, then
   `POST /media/confirm/:id` HEADs the object and marks the `MediaAsset` `ready`.
-- A video **Lesson** is either external (`videoUrl`) **or** R2 (`videoAssetId` →
-  `media_assets`), never both (enforced in `resolveVideoFields`).
+- A video **Lesson**'s source is always an **R2 upload** (`videoAssetId` → `media_assets`).
+  External/`videoUrl` video is **not supported** (removed for security: all video goes
+  through the private bucket + encrypted HLS so it can't be downloaded). `resolveVideoFields`
+  requires a `videoAssetId`.
 - **Secure playback**: `GET /lesson/getPlayback/:id` is gated by `assertLessonAccess`
   (owner/admin, or published + preview/enrolled) and returns one of:
-  `{source:'hls'}` (preferred; encrypted HLS, see below), `{source:'r2'}` (short-lived
-  presigned MP4 that falls back before transcode finishes / if ffmpeg absent), or
-  `{source:'external'}` (the YouTube URL).
+  `{source:'hls'}` (preferred; encrypted HLS, see below) or `{source:'r2'}` (short-lived
+  presigned MP4 that falls back before transcode finishes / if ffmpeg absent). A video
+  lesson with no uploaded asset yet (e.g. the seeded demo) returns **404**.
 - **Encrypted HLS (anti-download) + ABR**, [services/hls-service.ts](src/services/hls-service.ts): after `confirmUpload`, a
   background `transcodeToHls(assetId)` uses **ffmpeg** (height probed via **ffprobe**) to
   produce an **adaptive multi-rendition** (360/480/720/1080 ≤ source) **AES-128-encrypted**
@@ -83,8 +87,10 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
   **ffmpeg must be on PATH** (added to the Dockerfile); transcode is graceful (failure →
   `hlsStatus='failed'` → MP4 fallback). **R2 bucket CORS must allow GET** from the
   frontend origin (hls.js fetches segments cross-origin).
-- R2 is **optional**: if unconfigured (`env.r2.configured === false`), media endpoints
-  return **503** and external-URL lessons still work. Don't assume R2 is present.
+- R2 is **optional** for the app to boot, but it's **required for any video**: if
+  unconfigured (`env.r2.configured === false`), media + video-playback endpoints return
+  **503** and only text lessons work (there's no external-URL fallback anymore). Don't
+  assume R2 is present.
 - **Profile avatars** also live in R2 (`users.avatarAssetId` → `media_assets`, kind
   `image`). They're small, so they upload **server-side** through `putObject` (multer
   `memoryStorage`, no local disk) rather than presigned PUT. `getUserById`/`getAvatar`

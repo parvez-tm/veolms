@@ -169,7 +169,6 @@ export const getCourseById = async (
   }
   type LessonJSON = {
     isPreview: boolean;
-    videoUrl: string | null;
     videoAssetId: number | null;
     content: string | null;
   };
@@ -184,7 +183,6 @@ export const getCourseById = async (
     for (const section of data.sections ?? []) {
       for (const lesson of section.lessons ?? []) {
         if (!lesson.isPreview) {
-          lesson.videoUrl = null;
           lesson.videoAssetId = null;
           lesson.content = null;
         }
@@ -196,7 +194,7 @@ export const getCourseById = async (
 };
 
 export const addCourse = async (req: Request, res: Response): Promise<void> => {
-  const { title, subtitle, description, categoryId, level, thumbnail, thumbnailAssetId, price } =
+  const { title, subtitle, description, categoryId, level, thumbnailAssetId, price } =
     req.body ?? {};
   if (!title) {
     throw new ApiError(400, 'Course title is required');
@@ -205,13 +203,10 @@ export const addCourse = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError(400, 'level must be beginner, intermediate, or advanced');
   }
 
-  // An uploaded image takes precedence; otherwise an external URL (or neither).
+  // The cover image is an uploaded asset (R2) or none; external URLs aren't supported.
   let thumbAssetId: number | null = null;
-  let thumb: string | null = null;
   if (thumbnailAssetId !== undefined && thumbnailAssetId !== null) {
     thumbAssetId = await validateThumbnailAsset(thumbnailAssetId, req.user);
-  } else if (thumbnail) {
-    thumb = String(thumbnail);
   }
 
   const course = await Course.create({
@@ -220,7 +215,6 @@ export const addCourse = async (req: Request, res: Response): Promise<void> => {
     description: description ?? null,
     categoryId: await resolveCategoryId(categoryId),
     level: level ?? 'beginner',
-    thumbnail: thumb,
     thumbnailAssetId: thumbAssetId,
     // price is in paise (₹1 = 100); defaults to 0 (free) when omitted.
     price: price === undefined ? 0 : validateCoursePrice(price),
@@ -238,7 +232,7 @@ export const updateCourse = async (
 ): Promise<void> => {
   const course = await loadOwnedCourse(req.params.id, req.user);
 
-  const { title, subtitle, description, categoryId, level, thumbnail, thumbnailAssetId, price } =
+  const { title, subtitle, description, categoryId, level, thumbnailAssetId, price } =
     req.body ?? {};
   if (level && !LEVELS.includes(level)) {
     throw new ApiError(400, 'level must be beginner, intermediate, or advanced');
@@ -251,14 +245,10 @@ export const updateCourse = async (
   if (description !== undefined) course.description = description;
   if (categoryId !== undefined) course.categoryId = await resolveCategoryId(categoryId);
   if (level !== undefined) course.level = level;
-  // Thumbnail: an uploaded image (thumbnailAssetId) wins; otherwise an external
-  // URL string (`thumbnail`, null/'' clears it). Setting one detaches the other.
-  if (thumbnailAssetId !== undefined && thumbnailAssetId !== null) {
-    course.thumbnailAssetId = await validateThumbnailAsset(thumbnailAssetId, req.user);
-    course.thumbnail = null;
-  } else if (thumbnail !== undefined) {
-    course.thumbnail = thumbnail || null;
-    course.thumbnailAssetId = null;
+  // Cover image is an uploaded asset (R2) or none; pass null to clear it.
+  if (thumbnailAssetId !== undefined) {
+    course.thumbnailAssetId =
+      thumbnailAssetId === null ? null : await validateThumbnailAsset(thumbnailAssetId, req.user);
   }
   if (price !== undefined) course.price = validateCoursePrice(price);
   await course.save();

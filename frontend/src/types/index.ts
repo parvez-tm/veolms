@@ -65,7 +65,6 @@ export interface Lesson {
   title: string
   type: LessonType
   content?: string | null
-  videoUrl?: string | null
   videoAssetId?: number | null
   videoDurationSec?: number | null
   isPreview: boolean

@@ -293,7 +293,7 @@ export const myPayments = async (
   const payments = await Payment.findAll({
     where: { userId: req.user!.id },
     order: [['createdAt', 'DESC']],
-    include: [{ model: Course, as: 'course', attributes: ['id', 'title', 'thumbnail'] }],
+    include: [{ model: Course, as: 'course', attributes: ['id', 'title'] }],
   });
   res.status(200).json({ data: payments, message: 'Payments fetched' });
 };

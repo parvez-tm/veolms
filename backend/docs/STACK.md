@@ -83,7 +83,7 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 - R2 is S3-compatible: `new S3Client({ region: 'auto', endpoint: R2_ENDPOINT, credentials })`.
 - **`getSignedUrl(...)` is offline**: it signs locally with no network call, so presigned upload/playback URLs can be generated (and unit-tested) without contacting R2.
 - Upload is direct-to-R2 via a presigned **PUT** (app never proxies bytes). Playback is a short-lived presigned **GET** with `ResponseContentDisposition: inline`. Bucket is private; `storageKey` is never returned to clients.
-- The storage service throws `ApiError(503)` when R2 is unconfigured; controllers check `isStorageConfigured()` first so the app runs fine without R2 (external-URL lessons still work).
+- The storage service throws `ApiError(503)` when R2 is unconfigured; controllers check `isStorageConfigured()` first so the app still boots without R2 (text lessons work, but video needs R2 since external-URL video isn't supported).
 
 ### Encrypted HLS video (ffmpeg + hls.js): anti-download
 - On upload-confirm, [services/hls-service.ts](src/services/hls-service.ts) runs **ffprobe** (source height) then **ffmpeg** to produce **adaptive multi-rendition AES-128 encrypted HLS**: variant streams (360/480/720/1080p ≤ source) + a `master.m3u8` via `-var_stream_map`/`-master_pl_name`, encrypted with `-hls_key_info_file`. Uploads all `.m3u8` + `.ts` to R2 under `hls/<assetId>/`, stores the 16-byte key, and **deletes the raw MP4**. Re-encode cost is real; a future optimization is an on-demand worker that spins up per upload and shuts down.
@@ -91,7 +91,7 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 - **ffmpeg must be on PATH** (added to the Dockerfile, `apk add ffmpeg`). Graceful: no ffmpeg / transcode error → `hlsStatus='failed'` → playback falls back to a presigned MP4.
 - **R2 bucket CORS** must allow `GET` from the frontend origin (the browser/hls.js fetches segments cross-origin from R2).
 - Frontend: **hls.js** (lazy-loaded via dynamic `import()` so it stays out of the main bundle) attaches to a `<video>`; native HLS (Safari) is the fallback. The custom player adds resume, progress-save, speed, PiP, fullscreen and keyboard shortcuts.
-- Not DRM: within the ticket window a determined enrolled user could still script ffmpeg, and screen-capture defeats any web player. YouTube lessons are inherently public.
+- Not DRM: within the ticket window a determined enrolled user could still script ffmpeg, and screen-capture defeats any web player. Every lesson video goes through this path, since external video URLs aren't allowed.
 
 ### Razorpay (payments): no SDK
 - We call the **Orders REST API** directly: `POST https://api.razorpay.com/v1/orders` with

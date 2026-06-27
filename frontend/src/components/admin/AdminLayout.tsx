@@ -8,6 +8,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { userDisplayName } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -37,8 +38,10 @@ export function AdminLayout() {
               ? 'Sales'
               : 'Workspace'
 
-  const displayName = user?.firstName ?? user?.userName ?? 'You'
-  const initial = displayName.charAt(0).toUpperCase()
+  // Show a real name when known, otherwise fall back to the role label — never
+  // the email/username.
+  const name = userDisplayName(user)
+  const initial = (name || role || 'A').charAt(0).toUpperCase()
 
   const handleLogout = () => {
     logout()
@@ -111,7 +114,7 @@ export function AdminLayout() {
             <span className="hidden h-8 w-0.5 rounded-full bg-border sm:block" />
 
             <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-bold">{displayName}</p>
+              {name && <p className="text-sm font-bold">{name}</p>}
               <p className="text-xs font-medium capitalize text-muted-foreground">
                 {role}
               </p>

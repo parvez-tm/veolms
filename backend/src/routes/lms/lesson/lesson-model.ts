@@ -26,9 +26,7 @@ export class Lesson extends Model<
   declare type: LessonType;
   /** Sanitized HTML body for text lessons, or optional notes for video. */
   declare content: CreationOptional<string | null>;
-  /** External video URL (YouTube/Vimeo/CDN). Mutually exclusive with videoAssetId. */
-  declare videoUrl: CreationOptional<string | null>;
-  /** R2-hosted video (FK to media_assets). Mutually exclusive with videoUrl. */
+  /** R2-hosted video (FK to media_assets). The only video source; external URLs are not supported. */
   declare videoAssetId: CreationOptional<ForeignKey<number> | null>;
   declare videoDurationSec: CreationOptional<number | null>;
   declare position: CreationOptional<number>;
@@ -50,7 +48,6 @@ Lesson.init(
     title: { type: DataTypes.STRING, allowNull: false },
     type: { type: DataTypes.ENUM('video', 'text'), allowNull: false },
     content: { type: DataTypes.TEXT, allowNull: true },
-    videoUrl: { type: DataTypes.STRING, allowNull: true },
     videoAssetId: { type: DataTypes.BIGINT, allowNull: true },
     videoDurationSec: { type: DataTypes.INTEGER, allowNull: true },
     position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

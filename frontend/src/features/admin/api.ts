@@ -17,7 +17,6 @@ export interface NewCourseInput {
   title: string
   subtitle?: string
   description?: string
-  thumbnail?: string
   thumbnailAssetId?: number | null
   level: 'beginner' | 'intermediate' | 'advanced'
   price: number // paise
@@ -28,7 +27,10 @@ export function useCreateCourse() {
   return useMutation({
     mutationFn: async (payload: NewCourseInput) =>
       (await api.post<{ data: Course }>('/course/addCourse', payload)).data.data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['managed-courses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['managed-courses'] })
+      qc.invalidateQueries({ queryKey: ['catalog'] })
+    },
   })
 }
 
@@ -37,7 +39,13 @@ export function usePublishCourse() {
   return useMutation({
     mutationFn: async ({ id, publish }: { id: number; publish: boolean }) =>
       api.post(`/course/${publish ? 'publishCourse' : 'unpublishCourse'}/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['managed-courses'] }),
+    // Publishing/unpublishing changes what the PUBLIC catalog + detail show, so
+    // refresh those too — not just the admin list.
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['managed-courses'] })
+      qc.invalidateQueries({ queryKey: ['catalog'] })
+      qc.invalidateQueries({ queryKey: ['course', String(id)] })
+    },
   })
 }
 
@@ -45,6 +53,10 @@ export function useDeleteCourse() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: number) => api.delete(`/course/deleteCourse/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['managed-courses'] }),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ['managed-courses'] })
+      qc.invalidateQueries({ queryKey: ['catalog'] })
+      qc.invalidateQueries({ queryKey: ['course', String(id)] })
+    },
   })
 }

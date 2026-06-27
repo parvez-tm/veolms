@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { userDisplayName } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -8,6 +9,7 @@ export function Navbar() {
   const { isAuthenticated, isAdmin, role, user, logout } = useAuth()
   const navigate = useNavigate()
   const canManage = role === 'Admin' || role === 'Instructor'
+  const name = userDisplayName(user)
 
   const handleLogout = () => {
     logout()
@@ -76,9 +78,11 @@ export function Navbar() {
                   </Link>
                 </Button>
               )}
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                {user?.firstName ?? user?.userName}
-              </span>
+              {name && (
+                <span className="hidden text-sm text-muted-foreground sm:inline">
+                  {name}
+                </span>
+              )}
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>

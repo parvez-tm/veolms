@@ -206,45 +206,44 @@ export function AdminDashboardPage() {
           ) : (
             <ul className="divide-y-2 divide-foreground/5">
               {courses.slice(0, 5).map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-tint"
-                >
+                <li key={c.id} className="transition-colors hover:bg-tint">
                   <Link
                     to={`/admin/courses/${c.id}`}
-                    className="flex min-w-0 items-center gap-3"
+                    className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4"
                   >
-                    <span className="flex h-11 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-ink bg-muted">
-                      {c.thumbnail ? (
-                        <img
-                          src={c.thumbnail}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <BookOpen className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-bold tracking-tight">{c.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-grotesk font-bold text-primary-strong">
-                          {formatPrice(c.price, c.currency)}
-                        </span>{' '}
-                        · {c.level}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-11 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-ink bg-muted">
+                        {c.thumbnail ? (
+                          <img
+                            src={c.thumbnail}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <BookOpen className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold tracking-tight">{c.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-grotesk font-bold text-primary-strong">
+                            {formatPrice(c.price, c.currency)}
+                          </span>{' '}
+                          · {c.level}
+                        </p>
+                      </div>
                     </div>
+                    <span
+                      className={
+                        'shrink-0 rounded-full px-3 py-1 text-xs font-bold capitalize ' +
+                        (c.status === 'published'
+                          ? 'bg-teal/15 text-teal'
+                          : 'bg-muted text-muted-foreground')
+                      }
+                    >
+                      {c.status}
+                    </span>
                   </Link>
-                  <span
-                    className={
-                      'shrink-0 rounded-full px-3 py-1 text-xs font-bold capitalize ' +
-                      (c.status === 'published'
-                        ? 'bg-teal/15 text-teal'
-                        : 'bg-muted text-muted-foreground')
-                    }
-                  >
-                    {c.status}
-                  </span>
                 </li>
               ))}
             </ul>

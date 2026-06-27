@@ -13,7 +13,7 @@ import { apiErrorMessage } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
 const PERKS = [
-  { icon: Video, title: 'Publish video courses', desc: 'Upload lessons or embed YouTube and organize them into sections.', tint: 'bg-primary' },
+  { icon: Video, title: 'Publish video courses', desc: 'Upload video lessons and organize them into sections.', tint: 'bg-primary' },
   { icon: Users, title: 'Reach learners', desc: 'Your published courses appear in the public catalog instantly.', tint: 'bg-teal' },
   { icon: IndianRupee, title: 'Earn from sales', desc: 'Set a price (or go free). Razorpay checkout handles payments.', tint: 'bg-amber' },
 ]

@@ -19,12 +19,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// On an expired/invalid session, clear creds and bounce to login (but not while
+// On an invalidated session, clear creds and bounce to login (but not while
 // already on the login page, so a failed login surfaces its error to the form).
+// A session is invalid when the server returns 401 (missing/expired/bad token),
+// OR a 403 asking to "login again" — the backend uses that for a removed role or
+// changed permissions (auth_middleware). Ordinary 403s (a forbidden action) are
+// NOT a session problem, so they're left alone and surface to the caller.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const message =
+      (error.response?.data as { message?: string } | undefined)?.message ?? ''
+    const sessionInvalid =
+      status === 401 || (status === 403 && /please login again/i.test(message))
+    if (sessionInvalid) {
       const hadToken = !!localStorage.getItem(TOKEN_KEY)
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)

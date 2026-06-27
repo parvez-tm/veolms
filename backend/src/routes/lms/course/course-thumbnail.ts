@@ -17,8 +17,8 @@ export const THUMBNAIL_ASSET_INCLUDE = {
 
 /**
  * The display URL for a course cover: a short-lived presigned R2 URL when an
- * image was uploaded (`thumbnailAssetId`), otherwise the externally-hosted
- * `thumbnail` URL (or null). The private storage key is never exposed.
+ * image was uploaded (`thumbnailAssetId`), otherwise null. Covers are upload-only
+ * (external image URLs aren't supported) and the private storage key is never exposed.
  */
 export async function resolveThumbnailUrl(course: Course): Promise<string | null> {
   if (course.thumbnailAssetId && isStorageConfigured()) {
@@ -32,12 +32,12 @@ export async function resolveThumbnailUrl(course: Course): Promise<string | null
       return url;
     }
   }
-  return course.thumbnail ?? null;
+  return null;
 }
 
 /**
- * Course JSON for clients: `thumbnail` is replaced with its resolved display URL
- * and the internal asset association is stripped.
+ * Course JSON for clients: `thumbnail` is set to its resolved display URL (from
+ * the uploaded asset, or null) and the internal asset association is stripped.
  */
 export async function serializeCourse(
   course: Course

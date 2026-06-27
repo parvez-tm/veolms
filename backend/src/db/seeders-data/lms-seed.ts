@@ -125,7 +125,6 @@ export async function seedLmsData(
 type SeedLesson = {
   title: string;
   type: 'video' | 'text';
-  video?: string;
   content?: string;
   dur?: number;
   preview?: boolean;
@@ -141,13 +140,12 @@ type SeedCourse = {
   sections: SeedSection[];
 };
 
-const yt = (id: string): string => `https://www.youtube.com/watch?v=${id}`;
-
 /**
- * Seeded catalog. The video URLs are public tutorial videos used as
- * placeholders; replace them with your own (e.g. procodrr) clips from the
- * admin panel. Every course is published with sections, video + text lessons,
- * and a free preview lesson.
+ * Seeded catalog. Video lessons are created without a source: video is
+ * upload-only (private R2 + encrypted HLS), so there are no files to seed.
+ * Upload real clips to these lessons from the admin panel and they start
+ * playing. Until then a video lesson shows "Video unavailable". Every course is
+ * published with sections, video + text lessons, and a free preview lesson.
  */
 const CATALOG: SeedCourse[] = [
   {
@@ -162,16 +160,16 @@ const CATALOG: SeedCourse[] = [
       {
         title: 'Getting Started',
         lessons: [
-          { title: 'Welcome & how to learn', type: 'video', video: 'PkZNo7MFNFg', dur: 600, preview: true },
+          { title: 'Welcome & how to learn', type: 'video', dur: 600, preview: true },
           { title: 'How JavaScript actually runs', type: 'text', content: '<h2>How JS runs</h2><p>The engine, the call stack, and the event loop in plain English.</p><ul><li>Parsing &amp; execution</li><li>Hoisting</li><li>The event loop</li></ul>' },
-          { title: 'Variables, types & operators', type: 'video', video: 'W6NZfCO5SIk', dur: 900 },
+          { title: 'Variables, types & operators', type: 'video', dur: 900 },
         ],
       },
       {
         title: 'Core JavaScript',
         lessons: [
-          { title: 'Functions, scope & closures', type: 'video', video: 'PkZNo7MFNFg', dur: 1200 },
-          { title: 'Arrays, objects & loops', type: 'video', video: 'W6NZfCO5SIk', dur: 1500 },
+          { title: 'Functions, scope & closures', type: 'video', dur: 1200 },
+          { title: 'Arrays, objects & loops', type: 'video', dur: 1500 },
         ],
       },
     ],
@@ -188,16 +186,16 @@ const CATALOG: SeedCourse[] = [
       {
         title: 'React Basics',
         lessons: [
-          { title: 'What is React & why it matters', type: 'video', video: 'bMknfKXIFA8', dur: 720, preview: true },
+          { title: 'What is React & why it matters', type: 'video', dur: 720, preview: true },
           { title: 'JSX & components', type: 'text', content: '<h2>JSX &amp; components</h2><p>Components are functions that return UI. JSX is syntax sugar over <code>React.createElement</code>.</p>' },
-          { title: 'Props & state', type: 'video', video: 'bMknfKXIFA8', dur: 1100 },
+          { title: 'Props & state', type: 'video', dur: 1100 },
         ],
       },
       {
         title: 'Building Apps',
         lessons: [
-          { title: 'Hooks: useState & useEffect', type: 'video', video: 'bMknfKXIFA8', dur: 1300 },
-          { title: 'Fetching data & rendering lists', type: 'video', video: 'bMknfKXIFA8', dur: 1000 },
+          { title: 'Hooks: useState & useEffect', type: 'video', dur: 1300 },
+          { title: 'Fetching data & rendering lists', type: 'video', dur: 1000 },
         ],
       },
     ],
@@ -214,16 +212,16 @@ const CATALOG: SeedCourse[] = [
       {
         title: 'Node Fundamentals',
         lessons: [
-          { title: 'Node & npm basics', type: 'video', video: 'Oe421EPjeBE', dur: 800, preview: true },
+          { title: 'Node & npm basics', type: 'video', dur: 800, preview: true },
           { title: 'The event loop & async', type: 'text', content: '<h2>Async in Node</h2><p>Non-blocking I/O is what makes Node fast. Callbacks, promises and async/await all sit on the event loop.</p>' },
-          { title: 'Your first Express server', type: 'video', video: 'Oe421EPjeBE', dur: 1200 },
+          { title: 'Your first Express server', type: 'video', dur: 1200 },
         ],
       },
       {
         title: 'Building a REST API',
         lessons: [
-          { title: 'Routes, controllers & middleware', type: 'video', video: 'Oe421EPjeBE', dur: 1400 },
-          { title: 'Connecting a database', type: 'video', video: 'Oe421EPjeBE', dur: 1100 },
+          { title: 'Routes, controllers & middleware', type: 'video', dur: 1400 },
+          { title: 'Connecting a database', type: 'video', dur: 1100 },
         ],
       },
     ],
@@ -240,16 +238,16 @@ const CATALOG: SeedCourse[] = [
       {
         title: 'CSS Foundations',
         lessons: [
-          { title: 'Selectors & the box model', type: 'video', video: '1Rs2ND1ryYc', dur: 700, preview: true },
+          { title: 'Selectors & the box model', type: 'video', dur: 700, preview: true },
           { title: 'Specificity & the cascade', type: 'text', content: '<h2>Specificity</h2><p>Inline &gt; ID &gt; class &gt; element. When in doubt, keep selectors flat and predictable.</p>' },
-          { title: 'Flexbox in depth', type: 'video', video: '1Rs2ND1ryYc', dur: 1000 },
+          { title: 'Flexbox in depth', type: 'video', dur: 1000 },
         ],
       },
       {
         title: 'Responsive Design',
         lessons: [
-          { title: 'CSS Grid layouts', type: 'video', video: '1Rs2ND1ryYc', dur: 1100 },
-          { title: 'Media queries & responsive UI', type: 'video', video: '1Rs2ND1ryYc', dur: 900 },
+          { title: 'CSS Grid layouts', type: 'video', dur: 1100 },
+          { title: 'Media queries & responsive UI', type: 'video', dur: 900 },
         ],
       },
     ],
@@ -294,7 +292,6 @@ async function seedCatalog(
             title: l.title,
             type: l.type,
             content: l.content ?? null,
-            videoUrl: l.video ? yt(l.video) : null,
             videoAssetId: null,
             videoDurationSec: l.dur ?? null,
             isPreview: !!l.preview,

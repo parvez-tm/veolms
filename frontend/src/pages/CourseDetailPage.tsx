@@ -17,7 +17,8 @@ import { formatPrice } from '@/lib/utils'
 import { formatDuration } from '@/lib/video'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { VideoPlayer } from '@/components/VideoPlayer'
+import { LessonPlayer } from '@/components/LessonPlayer'
+import { usePlayback } from '@/features/learn/api'
 import type { Lesson } from '@/types'
 
 export function CourseDetailPage() {
@@ -212,7 +213,7 @@ export function CourseDetailPage() {
                 </div>
                 <ul className="divide-y divide-border">
                   {(section.lessons ?? []).map((lesson) => {
-                    const playable = lesson.isPreview && !!lesson.videoUrl
+                    const playable = lesson.isPreview && !!lesson.videoAssetId
                     return (
                       <li
                         key={lesson.id}
@@ -277,12 +278,33 @@ export function CourseDetailPage() {
         title={preview?.title ?? 'Preview'}
         className="max-w-3xl"
       >
-        {preview?.videoUrl ? (
-          <VideoPlayer source="external" url={preview.videoUrl} />
+        {preview ? (
+          <PreviewPlayer lessonId={preview.id} />
         ) : (
           <p className="text-sm text-muted-foreground">Preview not available.</p>
         )}
       </Modal>
     </>
   )
+}
+
+/**
+ * Plays a free-preview lesson by fetching its gated playback source (encrypted
+ * HLS or a short-lived presigned MP4). Preview lessons are viewable without
+ * enrolling; the backend enforces that.
+ */
+function PreviewPlayer({ lessonId }: { lessonId: number }) {
+  const playback = usePlayback(lessonId, true)
+
+  if (playback.isLoading) {
+    return (
+      <div className="pop flex aspect-video w-full items-center justify-center bg-tint text-sm font-semibold text-muted-foreground">
+        Loading preview…
+      </div>
+    )
+  }
+  if (!playback.data) {
+    return <p className="text-sm text-muted-foreground">Preview not available yet.</p>
+  }
+  return <LessonPlayer source={playback.data.source} url={playback.data.url} />
 }
