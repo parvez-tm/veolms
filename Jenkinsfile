@@ -1,21 +1,32 @@
 // VeoLMS backend CI/CD — single-server deploy.
 //
-// Model: Jenkins runs ON the same instance that hosts the app, and that node has
-// Docker. The pipeline builds the backend image and (re)runs it as a container on
-// this box. No registry, no remote SSH — build and run are local.
+// Model: Jenkins itself runs INSIDE a Docker container and drives the HOST's
+// Docker daemon (Docker-out-of-Docker — the host's /var/run/docker.sock is
+// mounted into Jenkins). The pipeline builds the backend image and (re)runs it as
+// a sibling container on the host. No registry, no remote SSH.
 //
-// Prerequisites on the server (one-time):
-//   - Docker installed and running.
-//   - The Jenkins user can talk to Docker (e.g. `usermod -aG docker jenkins`,
-//     then restart the Jenkins service).
-//   - The runtime env file exists at /opt/veolms/.env (KEY=VALUE lines, the same
-//     vars the app expects: JWT_SECRET, POSTGRES_*/DATABASE_URL + DATABASE_SSL,
-//     REDIS_URL, R2_*, RAZORPAY_*, SEED_ON_START, ...). It is NOT baked into the
-//     image — it's read at `docker run` time, so secrets stay off the image.
+// Key consequence: the docker DAEMON is the host's, so anything the daemon
+// resolves (`-v` bind mounts, `-p`, `--add-host`, `--restart`) refers to the
+// HOST filesystem/network — but the docker CLI's own file reads (`--env-file`,
+// build context) come from INSIDE the Jenkins container. The runtime env file
+// lives on the host (outside Jenkins), so we bind-mount it into the app container
+// instead of using `--env-file` (which the CLI would look for inside Jenkins and
+// not find).
 //
-// Redis/Postgres note: the container reaches the host via `host.docker.internal`
-// (mapped below). If Redis runs on the host, set REDIS_URL=redis://host.docker.internal:6379
-// in /opt/veolms/.env. Postgres is Neon (managed), so DATABASE_SSL=true.
+// Prerequisites (one-time):
+//   - Jenkins container started with the host socket + a docker CLI available, e.g.:
+//       docker run -d --name jenkins \
+//         -v /var/run/docker.sock:/var/run/docker.sock \
+//         -v jenkins_home:/var/jenkins_home \
+//         <jenkins-image-with-docker-cli>
+//     (the jenkins user must be allowed to use the socket — match the host docker GID).
+//   - /opt/veolms/.env exists ON THE HOST (KEY=VALUE lines: JWT_SECRET,
+//     POSTGRES_*/DATABASE_URL + DATABASE_SSL, REDIS_URL, R2_*, RAZORPAY_*, ...).
+//     The app loads it via dotenv at startup; it is never baked into the image.
+//
+// Redis/Postgres: the app container reaches host services via host.docker.internal
+// (mapped below) — e.g. REDIS_URL=redis://host.docker.internal:6379 if Redis runs
+// on the host. Postgres is Neon (managed), so DATABASE_SSL=true.
 
 pipeline {
   agent any
@@ -58,14 +69,22 @@ pipeline {
       steps {
         sh '''
           set -e
-          test -f "$ENV_FILE" || { echo "ERROR: env file not found at $ENV_FILE"; exit 1; }
+          # This shell runs inside the Jenkins container and can't see the host FS,
+          # so verify the host env file via a throwaway container (daemon-resolved
+          # mount of its directory). A missing dir would mount empty, so test the file.
+          ENV_DIR=$(dirname "$ENV_FILE")
+          ENV_NAME=$(basename "$ENV_FILE")
+          docker run --rm -v "$ENV_DIR":/host:ro alpine test -f "/host/$ENV_NAME" \
+            || { echo "ERROR: $ENV_FILE not found on the host"; exit 1; }
 
-          # Replace the running container with the freshly built image.
+          # Replace the running container with the freshly built image. The host
+          # env file is bind-mounted to /app/.env (the app loads it via dotenv);
+          # PORT is pinned so the listen port matches the published port.
           docker rm -f "$CONTAINER" 2>/dev/null || true
 
           docker run -d \
             --name "$CONTAINER" \
-            --env-file "$ENV_FILE" \
+            -v "$ENV_FILE":/app/.env:ro \
             -e PORT="$PORT" \
             -p "$PORT:$PORT" \
             --add-host=host.docker.internal:host-gateway \
