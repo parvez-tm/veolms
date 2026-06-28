@@ -79,6 +79,33 @@ export async function createOrder(params: {
   return (await response.json()) as RazorpayOrder;
 }
 
+/**
+ * Fetch an existing order from Razorpay using the CURRENT credentials. Returns
+ * the order when it belongs to this account, or null when it doesn't — a 4xx
+ * (e.g. the order was created under a different/rotated key) or the gateway
+ * being unreachable. Used to avoid handing Checkout an order id the current key
+ * can't open (which Razorpay rejects with a 400).
+ */
+export async function fetchOrder(orderId: string): Promise<RazorpayOrder | null> {
+  if (!env.razorpay.configured || !orderId) return null;
+
+  const auth = Buffer.from(
+    `${env.razorpay.keyId}:${env.razorpay.keySecret}`
+  ).toString('base64');
+
+  try {
+    const response = await fetch(`${ORDERS_URL}/${encodeURIComponent(orderId)}`, {
+      method: 'GET',
+      headers: { Authorization: `Basic ${auth}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as RazorpayOrder;
+  } catch {
+    return null;
+  }
+}
+
 /** Constant-time comparison of two hex digests. Rejects non-strings safely. */
 function safeEqualHex(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;

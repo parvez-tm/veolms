@@ -11,6 +11,7 @@ import { bodyId, nonNegInt } from '../../../helpers/parse-id';
 import { isFreeCourse } from '../course/course-pricing';
 import {
   createOrder,
+  fetchOrder,
   getPublishableKey,
   isPaymentConfigured,
   isWebhookConfigured,
@@ -127,18 +128,27 @@ export const createPaymentOrder = async (
     order: [['createdAt', 'DESC']],
   });
   if (openOrder) {
-    res.status(201).json({
-      data: {
-        orderId: openOrder.razorpayOrderId,
-        amount: openOrder.amount,
-        currency: openOrder.currency,
-        keyId: getPublishableKey(),
-        courseId: cid,
-        courseTitle: course.title,
-      },
-      message: 'Order created',
-    });
-    return;
+    // Only reuse it if the order still belongs to the CURRENT Razorpay account.
+    // A leftover order from a different/rotated key (e.g. a DB shared across
+    // environments) would otherwise be handed to Checkout and rejected with a
+    // 400. If it's no longer valid, retire it and fall through to mint a fresh
+    // one so the user is never stuck on a poisoned order.
+    if (await fetchOrder(openOrder.razorpayOrderId)) {
+      res.status(201).json({
+        data: {
+          orderId: openOrder.razorpayOrderId,
+          amount: openOrder.amount,
+          currency: openOrder.currency,
+          keyId: getPublishableKey(),
+          courseId: cid,
+          courseTitle: course.title,
+        },
+        message: 'Order created',
+      });
+      return;
+    }
+    openOrder.status = 'failed';
+    await openOrder.save();
   }
 
   const receipt = `rcpt_${cid}_${userId}_${Date.now().toString(36)}`.slice(0, 40);
