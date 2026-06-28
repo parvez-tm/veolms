@@ -6,34 +6,29 @@
  *      demo catalog) on the next start, since the DB is then empty.
  *   2. Deletes every object under the app's R2 prefixes.
  *
- * It reads the SAME .env the app uses (config/env.ts → dotenv), so it always
- * targets whatever Postgres + R2 your env points at. Run it from `backend/`:
+ * It reads the SAME config the app uses (config/env.ts), so it always targets
+ * whatever Postgres + R2 your env points at.
  *
- *     npm run reset -- --yes
- *     # or: npx tsx scripts/reset.ts --yes
+ * Lives under src/ so it compiles into dist/ and ships in the Docker image
+ * (no tsx needed in the container). Run it:
+ *
+ *   Local dev:   npm run reset -- --yes
+ *   In Docker:   docker exec veolms-backend node dist/scripts/reset.js --yes
  *
  * The `--yes` flag (or CONFIRM=1) is required so it can never run by accident.
  */
-import { sequelize } from '../src/db/sequelize';
-import { env } from '../src/config/env';
-import { isStorageConfigured, deletePrefix } from '../src/services/storage-service';
+import { sequelize } from '../db/sequelize';
+import { env } from '../config/env';
+import { isStorageConfigured, deletePrefix } from '../services/storage-service';
 
-// Every top-level key prefix the app writes under (see storage-service +
+// Every top-level key prefix the app writes under (storage-service +
 // media-controller KEY_PREFIX + hls-service). Scoped on purpose so a shared
 // bucket's unrelated objects are left alone.
-const R2_PREFIXES = [
-  'course/', // course-scoped uploads + course/<id>/hls/<assetId>/
-  'hls/', // flat HLS fallback (hls/<assetId>/)
-  'videos/',
-  'thumbnails/',
-  'files/',
-  'avatars/',
-];
+const R2_PREFIXES = ['course/', 'hls/', 'videos/', 'thumbnails/', 'files/', 'avatars/'];
 
 async function wipeDatabase(): Promise<void> {
   const target = env.database.url ? '(DATABASE_URL)' : `${env.database.host}/${env.database.name}`;
   console.log(`\n[db]  Dropping all tables + enum types in "${target}" ...`);
-  // Drop every table, then every enum type, in the public schema.
   await sequelize.query(`
     DO $$
     DECLARE r RECORD;
@@ -74,7 +69,8 @@ async function main(): Promise<void> {
       'Refusing to run without confirmation.\n' +
         'This permanently DELETES ALL data (Postgres tables + R2 objects)\n' +
         'for the env this process loads. Re-run with:\n\n' +
-        '    npm run reset -- --yes\n'
+        '    npm run reset -- --yes\n' +
+        '    # or in Docker: docker exec veolms-backend node dist/scripts/reset.js --yes\n'
     );
     process.exit(1);
   }
@@ -91,4 +87,7 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+// Only run when executed directly (never if some module imports this file).
+if (require.main === module) {
+  void main();
+}
