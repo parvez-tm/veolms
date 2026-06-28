@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node ./dist/app.js",
     "dev": "tsx watch src/app.ts",
+    "reset": "tsx scripts/reset.ts",
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

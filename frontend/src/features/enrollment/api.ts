@@ -65,7 +65,8 @@ export function useCheckout() {
 
       await loadRazorpay()
       return new Promise<boolean>((resolve, reject) => {
-        openRazorpay({
+        let failureMessage: string | null = null
+        const rzp = openRazorpay({
           key: order.keyId!,
           order_id: order.orderId!,
           amount: order.amount!,
@@ -92,7 +93,20 @@ export function useCheckout() {
               reject(err)
             }
           },
-          modal: { ondismiss: () => resolve(false) },
+          // Razorpay keeps the modal open after a failed attempt so the user can
+          // retry; we just record why. If they then close without succeeding,
+          // surface the reason (a plain dismiss stays a silent cancel).
+          modal: {
+            ondismiss: () => {
+              if (failureMessage) reject(new Error(failureMessage))
+              else resolve(false)
+            },
+          },
+        })
+        rzp.on('payment.failed', (e) => {
+          const description = (e as { error?: { description?: string } })?.error
+            ?.description
+          failureMessage = description || 'Payment failed. Please try again.'
         })
       })
     },
