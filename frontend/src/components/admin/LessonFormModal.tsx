@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { uploadVideo } from '@/lib/upload'
 import { apiErrorMessage } from '@/lib/api'
 import { useAddLesson, useUpdateLesson, type LessonInput } from '@/features/admin/manage'
-import type { Lesson } from '@/types'
+import type { Lesson, LessonResource } from '@/types'
 
 interface Props {
   open: boolean
@@ -15,6 +16,29 @@ interface Props {
   courseId: string | number
   sectionId: number
   lesson?: Lesson | null
+}
+
+/**
+ * Read a video file's duration in the browser by loading its metadata into a
+ * detached <video> element. Resolves to the rounded seconds, or null if it
+ * can't be determined (we still let the upload proceed in that case).
+ */
+function probeVideoDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    const done = (value: number | null) => {
+      URL.revokeObjectURL(url)
+      resolve(value)
+    }
+    video.onloadedmetadata = () => {
+      const d = video.duration
+      done(Number.isFinite(d) && d > 0 ? Math.round(d) : null)
+    }
+    video.onerror = () => done(null)
+    video.src = url
+  })
 }
 
 export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: Props) {
@@ -25,7 +49,11 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
   const [title, setTitle] = useState(lesson?.title ?? '')
   const [type, setType] = useState<'video' | 'text'>(lesson?.type ?? 'video')
   const [isPreview, setIsPreview] = useState(lesson?.isPreview ?? false)
+  const [description, setDescription] = useState(lesson?.description ?? '')
   const [content, setContent] = useState(lesson?.content ?? '')
+  const [resources, setResources] = useState<LessonResource[]>(
+    lesson?.resources ?? []
+  )
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -38,6 +66,13 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
     setBusy(false)
   }
 
+  const addResource = () =>
+    setResources((rs) => [...rs, { title: '', url: '' }])
+  const updateResource = (i: number, patch: Partial<LessonResource>) =>
+    setResources((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
+  const removeResource = (i: number) =>
+    setResources((rs) => rs.filter((_, idx) => idx !== i))
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -45,12 +80,27 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
       setError('Title is required')
       return
     }
+    // Keep only complete rows; both fields required, url must be http(s).
+    const cleanResources = resources
+      .map((r) => ({ title: r.title.trim(), url: r.url.trim() }))
+      .filter((r) => r.title || r.url)
+    if (cleanResources.some((r) => !r.title || !r.url)) {
+      setError('Each resource needs both a title and a URL')
+      return
+    }
+    if (cleanResources.some((r) => !/^https?:\/\//i.test(r.url))) {
+      setError('Resource URLs must start with http:// or https://')
+      return
+    }
     setBusy(true)
     try {
       // Upload the chosen video file to private storage (R2) and attach the asset.
       let videoAssetId: number | undefined
+      let videoDurationSec: number | null | undefined
       if (type === 'video') {
         if (file) {
+          // Probe the duration client-side before/while uploading.
+          videoDurationSec = await probeVideoDuration(file)
           setProgress(0)
           videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
           setProgress(null)
@@ -62,19 +112,36 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
       }
 
       if (editing) {
-        const payload: Record<string, unknown> = { id: lesson!.id, title: title.trim(), isPreview }
+        const payload: { id: number } & Partial<LessonInput> = {
+          id: lesson!.id,
+          title: title.trim(),
+          isPreview,
+          description: description.trim() || null,
+          resources: cleanResources,
+        }
         if (type === 'text') payload.content = content
-        if (type === 'video' && videoAssetId) payload.videoAssetId = videoAssetId
-        await updateLesson.mutateAsync(payload as { id: number } & Partial<LessonInput>)
+        if (type === 'video') {
+          // For videos, `content` carries optional notes.
+          payload.content = content.trim() || null
+          if (videoAssetId) payload.videoAssetId = videoAssetId
+          if (videoDurationSec != null) payload.videoDurationSec = videoDurationSec
+        }
+        await updateLesson.mutateAsync(payload)
       } else {
         const payload: LessonInput = {
           sectionId,
           title: title.trim(),
           type,
           isPreview,
+          description: description.trim() || null,
+          resources: cleanResources,
         }
         if (type === 'text') payload.content = content
-        if (type === 'video' && videoAssetId) payload.videoAssetId = videoAssetId
+        if (type === 'video') {
+          payload.content = content.trim() || null
+          if (videoAssetId) payload.videoAssetId = videoAssetId
+          if (videoDurationSec != null) payload.videoDurationSec = videoDurationSec
+        }
         await addLesson.mutateAsync(payload)
       }
       reset()
@@ -97,6 +164,16 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Introduction to variables"
             required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="lessonDesc">Description</Label>
+          <Input
+            id="lessonDesc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="One line summarising this lesson"
           />
         </div>
 
@@ -157,6 +234,17 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
                 ? 'Upload a new file to replace the current video. Stored privately and streamed as encrypted video.'
                 : 'Uploaded straight to private storage (R2) and streamed as encrypted video, so it can’t be downloaded. Needs storage configured.'}
             </p> */}
+
+            <div className="space-y-2 pt-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={content ?? ''}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Optional notes shown alongside the video"
+                rows={4}
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
@@ -170,6 +258,45 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
             />
           </div>
         )}
+
+        {/* Resources */}
+        <div className="space-y-2">
+          <Label>Resources</Label>
+          {resources.length > 0 && (
+            <div className="space-y-2">
+              {resources.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={r.title}
+                    onChange={(e) => updateResource(i, { title: e.target.value })}
+                    placeholder="Title"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={r.url}
+                    onChange={(e) => updateResource(i, { url: e.target.value })}
+                    placeholder="https://…"
+                    inputMode="url"
+                    className="flex-[1.4]"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    title="Remove resource"
+                    onClick={() => removeResource(i)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={addResource}>
+            <Plus className="h-4 w-4" />
+            Add resource
+          </Button>
+        </div>
 
         <label className="flex items-center gap-2 text-sm">
           <input

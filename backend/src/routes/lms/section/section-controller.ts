@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Section } from './section-model';
 import { Lesson } from '../lesson/lesson-model';
 import { Course } from '../course/course-model';
+import { sequelize } from '../../../db/sequelize';
 import { ApiError } from '../../../types/interface';
 import { isAdminOrOwner } from '../../../middleware/role-middleware';
 import { loadOwnedCourse } from '../course-access';
@@ -65,6 +66,35 @@ export const updateSection = async (
   await section.save();
 
   res.status(200).json({ data: section, message: 'Section updated successfully' });
+};
+
+/**
+ * Reorder a course's sections. Body: { courseId, order: number[] } where `order`
+ * is the section ids in their new top-to-bottom order. Positions are rewritten
+ * to the array index, scoped to the course so foreign ids are ignored.
+ */
+export const reorderSections = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { courseId, order } = req.body ?? {};
+  if (!courseId || !Array.isArray(order)) {
+    throw new ApiError(400, 'courseId and an order array are required');
+  }
+  const cid = bodyId(courseId, 'courseId');
+  await loadOwnedCourse(cid, req.user);
+
+  await sequelize.transaction(async (transaction) => {
+    let position = 0;
+    for (const raw of order) {
+      const id = bodyId(raw, 'order[]');
+      await Section.update(
+        { position: position++ },
+        { where: { id, courseId: cid }, transaction }
+      );
+    }
+  });
+  res.status(200).json({ message: 'Sections reordered' });
 };
 
 export const deleteSection = async (

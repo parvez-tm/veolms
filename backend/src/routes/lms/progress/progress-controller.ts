@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UniqueConstraintError } from 'sequelize';
 import { LessonProgress } from './lesson-progress-model';
 import { Lesson } from '../lesson/lesson-model';
+import { Course } from '../course/course-model';
 import { Enrollment } from '../enrollment/enrollment-model';
 import { ApiError } from '../../../types/interface';
 import { parseId, bodyId, nonNegInt } from '../../../helpers/parse-id';
@@ -175,4 +176,37 @@ export const getCourseProgress = async (
   await ensureEnrolled(req.user!.id, courseId);
   const summary = await computeCourseProgress(req.user!.id, courseId, true);
   res.status(200).json({ data: summary, message: 'Progress fetched' });
+};
+
+/**
+ * The user's most recently watched lessons (watch history), newest first.
+ * Derived from LessonProgress.updatedAt so it reflects real recency.
+ */
+export const getRecentlyWatched = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const rows = await LessonProgress.findAll({
+    where: { userId: req.user!.id },
+    order: [['updatedAt', 'DESC']],
+    limit: 8,
+    include: [
+      { model: Lesson, as: 'lesson', attributes: ['id', 'title', 'sectionId', 'courseId'] },
+      { model: Course, as: 'course', attributes: ['id', 'title'] },
+    ],
+  });
+
+  const data = rows
+    .filter((r) => r.lesson && r.course)
+    .map((r) => ({
+      lessonId: r.lessonId,
+      courseId: r.courseId,
+      completed: r.completed,
+      lastPositionSec: r.lastPositionSec,
+      updatedAt: r.updatedAt,
+      lessonTitle: r.lesson?.title ?? '',
+      courseTitle: r.course?.title ?? '',
+    }));
+
+  res.status(200).json({ data, message: 'Recently watched fetched' });
 };

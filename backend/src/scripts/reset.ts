@@ -1,9 +1,9 @@
 /**
- * DESTRUCTIVE reset — wipes ALL application data for a clean start.
+ * DESTRUCTIVE reset that wipes ALL application data for a clean start.
  *
  *   1. Drops every table + enum type in the Postgres `public` schema, then
  *      immediately recreates the schema (sequelize.sync) and reseeds (roles,
- *      menus, demo catalog) — same as a normal app boot, so no restart needed.
+ *      menus, demo catalog), the same as a normal app boot, so no restart is needed.
  *   2. Deletes every object under the app's R2 prefixes.
  *
  * It reads the SAME config the app uses (config/env.ts), so it always targets
@@ -54,7 +54,7 @@ async function wipeDatabase(): Promise<void> {
  * Recreate the schema and reseed, exactly like a normal app boot: connectDB()
  * wires associations, runs sequelize.sync() (creates the now-missing tables),
  * and seeds baseline data since the DB is empty. So no container restart is
- * needed after a reset — the DB is left ready to use.
+ * needed after a reset; the DB is left ready to use.
  */
 async function recreateDatabase(): Promise<void> {
   console.log('\n[db]  Recreating schema + seeding ...');
@@ -64,7 +64,7 @@ async function recreateDatabase(): Promise<void> {
 
 async function wipeR2(): Promise<void> {
   if (!isStorageConfigured()) {
-    console.log('\n[r2]  R2 not configured (R2_* env unset) — skipping object cleanup.');
+    console.log('\n[r2]  R2 not configured (R2_* env unset), skipping object cleanup.');
     return;
   }
   console.log(`\n[r2]  Deleting objects in bucket "${env.r2.bucket}" under: ${R2_PREFIXES.join(' ')}`);
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     await wipeDatabase();
     await recreateDatabase();
     await wipeR2();
-    console.log('\n✓ Clean, schema recreated, and reseeded — no restart needed.\n');
+    console.log('\n✓ Clean, schema recreated, and reseeded. No restart needed.\n');
   } catch (err) {
     console.error('\n✗ Reset failed:', (err as Error).message);
     process.exitCode = 1;

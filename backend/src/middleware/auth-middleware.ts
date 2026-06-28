@@ -4,12 +4,19 @@ import { env } from '../config/env';
 import { ApiError, JwtPayload } from '../types/interface';
 import { sanitizeData } from '../services/sanitize-service';
 import { getRolePermissionVersion } from '../services/permission-cache-service';
+import { ACCESS_COOKIE, CSRF_COOKIE } from '../services/token-service';
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Authenticate the request:
  *  1. Optionally parse + sanitize a multipart `data` JSON envelope.
- *  2. Verify the Bearer JWT.
- *  3. Confirm the role's permissions have not changed since the token was issued
+ *  2. Read the access JWT from the httpOnly cookie (browser) or a Bearer header
+ *     (API clients / tests) and verify it.
+ *  3. For cookie-authenticated, state-changing requests, enforce a double-submit
+ *     CSRF token (X-CSRF-Token header must match the csrf_token cookie). Bearer
+ *     requests are exempt: a Bearer header is never auto-sent by browsers.
+ *  4. Confirm the role's permissions have not changed since the token was issued
  *     (using the Redis-cached permission version, not a per-request DB hit).
  * On success, attaches the decoded payload to `req.user`.
  */
@@ -25,17 +32,28 @@ export const auth_middleware: RequestHandler = async (req, res, next) => {
     }
 
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : '';
+    const cookieToken = (req.cookies?.[ACCESS_COOKIE] as string | undefined) ?? '';
+    const token = bearer || cookieToken;
+    const fromCookie = !bearer && !!cookieToken;
+
+    if (!token) {
       res
         .status(401)
         .json({ message: 'Authorization token missing or malformed' });
       return;
     }
 
-    const token = authHeader.slice('Bearer '.length).trim();
-    if (!token) {
-      res.status(401).json({ message: 'No authentication token provided' });
-      return;
+    // CSRF guard for cookie-based sessions on mutating requests.
+    if (fromCookie && !SAFE_METHODS.has(req.method)) {
+      const headerToken = req.get('x-csrf-token');
+      const csrfCookie = req.cookies?.[CSRF_COOKIE] as string | undefined;
+      if (!headerToken || !csrfCookie || headerToken !== csrfCookie) {
+        res.status(403).json({ message: 'Invalid or missing CSRF token' });
+        return;
+      }
     }
 
     let decoded: JwtPayload;

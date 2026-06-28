@@ -46,15 +46,32 @@ const razorpay = {
 };
 razorpay.configured = !!(razorpay.keyId && razorpay.keySecret);
 
+const email = {
+  host: optional('SMTP_HOST', ''),
+  port: Number(optional('SMTP_PORT', '587')),
+  secure: optional('SMTP_SECURE', 'false') === 'true',
+  user: optional('SMTP_USER', ''),
+  pass: optional('SMTP_PASS', ''),
+  from: optional('EMAIL_FROM', 'VeoLMS <no-reply@veolms.local>'),
+  /** When false, email links are logged to the console (dev fallback). */
+  configured: false,
+};
+email.configured = !!(email.host && email.user && email.pass);
+
 export const env = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
   port: Number(optional('PORT', '5005')),
   corsOrigin: optional('CORS_ORIGIN', '*'),
+  /** Public URL of the frontend, used to build links in transactional emails. */
+  appUrl: optional('APP_URL', 'http://localhost:5173'),
 
   jwt: {
     secret: required('JWT_SECRET'),
-    expiresIn: optional('JWT_EXPIRES_IN', '1d'),
+    /** Short-lived access token TTL (seconds); it rides in an httpOnly cookie. */
+    accessTtlSec: Number(optional('JWT_ACCESS_TTL', '900')),
+    /** Refresh token lifetime (days); opaque, rotated, stored hashed in the DB. */
+    refreshTtlDays: Number(optional('JWT_REFRESH_TTL_DAYS', '30')),
   },
 
   database: {
@@ -79,6 +96,9 @@ export const env = {
 
   /** Razorpay payment gateway (test mode for the challenge). */
   razorpay,
+
+  /** Transactional email (password reset + verification). Falls back to console logging. */
+  email,
 
   seed: {
     /** Seed the Admin role/menus/admin user when the database is empty. */

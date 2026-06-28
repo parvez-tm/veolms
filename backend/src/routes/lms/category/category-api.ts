@@ -7,11 +7,14 @@ import {
   addCategory,
   deleteCategory,
   getAllCategories,
+  getPublicCategories,
   updateCategory,
 } from './category-controller';
 
 const router = Router();
 
+// Public: the homepage/catalog browse lists categories (with course counts).
+router.get('/catalog', asyncHandler(getPublicCategories));
 router.get('/getAllCategories', auth_middleware, asyncHandler(getAllCategories));
 router.post(
   '/addCategory',

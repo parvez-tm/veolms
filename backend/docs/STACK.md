@@ -25,7 +25,11 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 | Razorpay | (no dep) | payments via the **Orders REST API** (`fetch` + Basic auth) + `crypto` HMAC, deliberately **no SDK** |
 | express-rate-limit | ^7.5.1 | v7 supports Express 5; in-memory store (swap for Redis store to scale horizontally) |
 | ffmpeg | system (alpine pkg) | encrypted-HLS transcode of uploaded video; installed in the Dockerfile, invoked via `child_process` |
-| cors | ^2.8.6 | - |
+| cors | ^2.8.6 | credentialed CORS for cookie auth (`credentials: true`; `*` becomes "reflect origin") |
+| helmet | ^8.2.0 | secure HTTP headers (CSP/HSTS/etc.) on the JSON API |
+| cookie-parser | ^1.4.7 | parses the httpOnly access/refresh + readable csrf cookies |
+| nodemailer | ^9.0.1 | password-reset + verification email; SMTP when configured, else console fallback |
+| vitest | ^4.1.9 (dev) | unit tests for pure logic (`npm test`) |
 
 `npm outdated` to check; `npm view <pkg> dist-tags` to confirm stable vs alpha/beta before bumping a major.
 
@@ -62,8 +66,23 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 - Treat as a **cache**: every read is wrapped so a Redis outage falls back to Postgres instead of failing the request (see `services/permission-cache-service.ts`).
 
 ### jsonwebtoken 9
-- `jwt.sign(payload, secret, { expiresIn })`. The typed `expiresIn` wants `number | ms.StringValue`; our value is a validated config string, cast at the call site.
+- `jwt.sign(payload, secret, { expiresIn })` with a numeric seconds TTL (`env.jwt.accessTtlSec`, default 900).
 - `jwt.verify` throws on a bad or expired token, which `auth_middleware` catches and turns into a 401.
+- The signed JWT is the **access token**; it now lives in an httpOnly cookie (see the auth section below), not in a response body. JWTs also back the short-lived HLS playback tickets (`services/hls-ticket.ts`).
+
+### Auth: httpOnly cookies + refresh rotation + CSRF (`services/token-service.ts`)
+- **Access token**: short-lived JWT (`JWT_ACCESS_TTL`, 15 min) in an httpOnly, SameSite=Lax cookie (`access_token`). `auth_middleware` reads it from the cookie or a `Bearer` header (the header path is for API clients/tests).
+- **Refresh token**: an opaque 32-byte random value in an httpOnly cookie (`refresh_token`), stored only as a SHA-256 hash in `refresh_tokens`. `POST /user/refresh` consumes (deletes) the presented row and issues a fresh set (rotation). The frontend calls it silently on a 401 and once on boot, which is what makes login survive a browser close (`JWT_REFRESH_TTL_DAYS`, 30 days).
+- **CSRF**: a readable (non-httpOnly) `csrf_token` cookie is echoed by the SPA in an `X-CSRF-Token` header; `auth_middleware` requires header == cookie for cookie-authenticated, state-changing requests. Bearer requests are exempt (a Bearer header is never auto-sent by a browser).
+- Cookie `path` is `/` so the cookies survive a reverse proxy that rewrites the API path prefix (e.g. `/veolms-api`). `secure` is on in production.
+- `logout` revokes the refresh row + clears cookies; `reset-password` revokes all of a user's refresh tokens.
+
+### nodemailer 9 (transactional email)
+- `createTransport({ host, port, secure, auth })` from `SMTP_*`. When SMTP is unset, `email-service.ts` logs the message + action link to the console so forgot-password / verify-email are testable with no mail account.
+- Used for: email verification (non-blocking; the account works before verifying), password reset (1h token), and contact-form forwarding.
+
+### vitest 4 (tests)
+- `npm test` (`vitest run`) covers the pure, security-critical logic without Postgres/Redis/R2: payment + webhook HMAC verification, pricing rules, id/int validation, search-filter whitelisting, HLS tickets. `test/setup.ts` sets env before `config/env.ts` loads. Integration tests that need a live DB are out of scope (they'd need a throwaway Postgres).
 
 ### bcryptjs 3
 - Ships its own types, so **do not install `@types/bcryptjs`** (deprecated stub).

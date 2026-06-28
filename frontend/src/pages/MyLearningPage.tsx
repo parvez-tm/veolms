@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { PlayCircle, BookOpen, Trophy, ArrowRight } from 'lucide-react'
+import { PlayCircle, BookOpen, Trophy, ArrowRight, CheckCircle2, Circle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useMyEnrollments, type EnrolledCourse } from '@/features/enrollment/api'
+import { useRecentlyWatched } from '@/features/learn/api'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 function Thumb({ course }: { course?: EnrolledCourse['course'] }) {
   if (course?.thumbnail) {
@@ -26,7 +28,9 @@ function ProgressBar({ percent }: { percent: number }) {
 export function MyLearningPage() {
   const { user } = useAuth()
   const { data: enrollments, isLoading } = useMyEnrollments()
+  const { data: recent } = useRecentlyWatched()
   const list = enrollments ?? []
+  const recentList = recent ?? []
 
   const continueCourse =
     list.find((e) => e.status === 'active' && (e.progress?.percent ?? 0) > 0) ??
@@ -75,6 +79,46 @@ export function MyLearningPage() {
         </div>
       ) : (
         <>
+          {/* Continue / Recently watched */}
+          {recentList.length > 0 && (
+            <section className="mt-8">
+              <span className="eyebrow">Continue · Recently watched</span>
+              <div className="mt-3 flex snap-x gap-4 overflow-x-auto pb-2">
+                {recentList.map((r) => (
+                  <article
+                    key={r.lessonId}
+                    className="pop pop-hover flex w-64 shrink-0 snap-start flex-col gap-2 p-4"
+                  >
+                    <span
+                      className={cn(
+                        'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                        r.completed
+                          ? 'bg-teal/15 text-teal'
+                          : 'bg-amber/15 text-amber'
+                      )}
+                    >
+                      {r.completed ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Circle className="h-3.5 w-3.5" />
+                      )}
+                      {r.completed ? 'Completed' : 'In progress'}
+                    </span>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {r.courseTitle}
+                    </p>
+                    <h3 className="line-clamp-2 font-bold leading-snug">{r.lessonTitle}</h3>
+                    <Button asChild size="sm" variant="outline" className="mt-auto w-full">
+                      <Link to={`/learn/${r.courseId}`}>
+                        <PlayCircle className="h-4 w-4" /> Resume
+                      </Link>
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Continue learning */}
           {continueCourse && (
             <section className="mt-8">

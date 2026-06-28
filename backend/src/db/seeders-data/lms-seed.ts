@@ -94,6 +94,7 @@ export async function seedLmsData(
       email: 'instructor@veolms.local',
       password: 'Instructor@123',
       roleId: instructorRole.id,
+      isVerified: true,
     },
     { transaction }
   );
@@ -105,6 +106,7 @@ export async function seedLmsData(
       email: 'student@veolms.local',
       password: 'Student@123',
       roleId: studentRole.id,
+      isVerified: true,
     },
     { transaction }
   );

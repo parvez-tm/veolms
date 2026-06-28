@@ -1,11 +1,35 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { Category } from './category-model';
 import { ApiError } from '../../../types/interface';
 import {
   calculatePaginationInfo,
   parseRequestParams,
 } from '../../../helpers/filters';
+
+/**
+ * Public category list for the homepage / catalog browse, each annotated with
+ * the number of PUBLISHED courses in it (computed in a correlated subquery).
+ */
+export const getPublicCategories = async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
+  const categories = await Category.findAll({
+    attributes: {
+      include: [
+        [
+          literal(
+            '(SELECT COUNT(*) FROM "courses" AS c WHERE c."categoryId" = "Category"."id" AND c."status" = \'published\')'
+          ),
+          'courseCount',
+        ],
+      ],
+    },
+    order: [['name', 'ASC']],
+  });
+  res.status(200).json({ data: categories, message: 'Categories fetched' });
+};
 
 export const getAllCategories = async (
   req: Request,

@@ -38,7 +38,7 @@ export function AdminLayout() {
               ? 'Sales'
               : 'Workspace'
 
-  // Show a real name when known, otherwise fall back to the role label — never
+  // Show a real name when known, otherwise fall back to the role label, never
   // the email/username.
   const name = userDisplayName(user)
   const initial = (name || role || 'A').charAt(0).toUpperCase()

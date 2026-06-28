@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Mail, MessageSquare, Clock, CheckCircle2 } from 'lucide-react'
+import api, { apiErrorMessage } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -28,11 +29,26 @@ const INFO = [
 
 export function ContactPage() {
   const [sent, setSent] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const onSubmit = (e: FormEvent) => {
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    // Front-end only. Wire this to a real endpoint when one exists.
-    setSent(true)
+    setError('')
+    setLoading(true)
+    try {
+      await api.post('/contact', form)
+      setSent(true)
+      setForm({ name: '', email: '', subject: '', message: '' })
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not send your message'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -134,7 +150,7 @@ export function ContactPage() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="name">Name</Label>
-                      <Input id="name" placeholder="Your name" required />
+                      <Input id="name" placeholder="Your name" value={form.name} onChange={set('name')} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
@@ -142,13 +158,15 @@ export function ContactPage() {
                         id="email"
                         type="email"
                         placeholder="you@example.com"
+                        value={form.email}
+                        onChange={set('email')}
                         required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" placeholder="What's this about?" required />
+                    <Input id="subject" placeholder="What's this about?" value={form.subject} onChange={set('subject')} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
@@ -156,11 +174,18 @@ export function ContactPage() {
                       id="message"
                       rows={5}
                       placeholder="Tell us a bit more…"
+                      value={form.message}
+                      onChange={set('message')}
                       required
                     />
                   </div>
-                  <Button type="submit" size="lg" className="w-full">
-                    Send message
+                  {error && (
+                    <p className="rounded-xl bg-destructive/10 px-3.5 py-2.5 text-sm font-medium text-destructive">
+                      {error}
+                    </p>
+                  )}
+                  <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                    {loading ? 'Sending…' : 'Send message'}
                   </Button>
                 </form>
               )}

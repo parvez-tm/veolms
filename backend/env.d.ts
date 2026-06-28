@@ -3,9 +3,22 @@ declare namespace NodeJS {
     NODE_ENV?: 'development' | 'production' | 'test';
     PORT?: string;
     CORS_ORIGIN?: string;
+    /** Public frontend URL used to build links in transactional emails. */
+    APP_URL?: string;
 
     JWT_SECRET?: string;
-    JWT_EXPIRES_IN?: string;
+    /** Access-token TTL in seconds (httpOnly cookie). */
+    JWT_ACCESS_TTL?: string;
+    /** Refresh-token lifetime in days. */
+    JWT_REFRESH_TTL_DAYS?: string;
+
+    /** Transactional email (SMTP). When unset, links are logged to the console. */
+    SMTP_HOST?: string;
+    SMTP_PORT?: string;
+    SMTP_SECURE?: string;
+    SMTP_USER?: string;
+    SMTP_PASS?: string;
+    EMAIL_FROM?: string;
 
     /** Full Postgres connection URL. Takes precedence over the discrete POSTGRES_* vars. */
     DATABASE_URL?: string;

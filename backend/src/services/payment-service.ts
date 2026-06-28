@@ -81,7 +81,7 @@ export async function createOrder(params: {
 
 /**
  * Fetch an existing order from Razorpay using the CURRENT credentials. Returns
- * the order when it belongs to this account, or null when it doesn't — a 4xx
+ * the order when it belongs to this account, or null when it doesn't: a 4xx
  * (e.g. the order was created under a different/rotated key) or the gateway
  * being unreachable. Used to avoid handing Checkout an order id the current key
  * can't open (which Razorpay rejects with a 400).

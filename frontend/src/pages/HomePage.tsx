@@ -7,23 +7,84 @@ import {
   Zap,
   IndianRupee,
   Star,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CourseCard, CourseCardSkeleton } from '@/features/courses/CourseCard'
-import { useCatalog } from '@/features/courses/api'
+import { useCatalog, useCategories } from '@/features/courses/api'
 import { useAuth } from '@/context/AuthContext'
+
+const TESTIMONIALS = [
+  {
+    quote:
+      'The project-based lessons finally made things click. I shipped my first full-stack app in a weekend.',
+    name: 'Aarav Sharma',
+    role: 'Frontend Developer',
+  },
+  {
+    quote:
+      'Clean player, resume-where-I-left-off, and no fluff. VeoLMS respects your time.',
+    name: 'Priya Menon',
+    role: 'CS Student',
+  },
+  {
+    quote:
+      'Pay once and own it forever sold me. The courses are genuinely well structured.',
+    name: 'Daniel Okafor',
+    role: 'Career switcher',
+  },
+]
+
+const FAQS = [
+  {
+    q: 'Do I pay once or subscribe?',
+    a: 'Most courses are a one-time purchase: pay once and keep lifetime access. We also publish free courses you can start with no card.',
+  },
+  {
+    q: 'How is the video delivered?',
+    a: 'Lessons stream as adaptive-bitrate HLS that adjusts to your connection, with resume, speed controls and quality selection built in.',
+  },
+  {
+    q: 'Can I get a refund?',
+    a: 'If a paid course isn’t what you expected, reach out within 7 days and we’ll sort it out.',
+  },
+  {
+    q: 'Do I need an account to browse?',
+    a: 'No. You can browse the full catalog and watch preview lessons without signing up. You only need an account to enroll.',
+  },
+]
+
+function Faq({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="pop overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 p-5 text-left font-bold"
+        aria-expanded={open}
+      >
+        {q}
+        <ChevronDown className={'h-5 w-5 shrink-0 transition-transform ' + (open ? 'rotate-180' : '')} />
+      </button>
+      {open && <p className="px-5 pb-5 font-medium text-muted-foreground">{a}</p>}
+    </div>
+  )
+}
 
 export function HomePage() {
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
-  const { data: courses, isLoading } = useCatalog()
+  const { data: courses, isLoading } = useCatalog({ limit: 8 })
+  const { data: popular } = useCatalog({ sort: 'popular', limit: 8 })
+  const { data: categories } = useCategories()
   const { isAuthenticated, dashboardPath } = useAuth()
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault()
     navigate(
-      search.trim() ? `/courses?search=${encodeURIComponent(search.trim())}` : '/courses'
+      search.trim() ? `/courses?q=${encodeURIComponent(search.trim())}` : '/courses'
     )
   }
 
@@ -141,16 +202,42 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Featured courses */}
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+      {/* Browse by category */}
+      {(categories ?? []).length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+          <span className="eyebrow">Browse</span>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Explore by category
+          </h2>
+          <div className="mt-7 flex flex-wrap gap-3">
+            {(categories ?? []).map((c) => (
+              <Link
+                key={c.id}
+                to={`/courses?category=${c.id}`}
+                className="pop pop-hover inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold"
+              >
+                {c.name}
+                {Number(c.courseCount) > 0 && (
+                  <span className="rounded-full bg-tint px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                    {Number(c.courseCount)}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Featured (newest) courses */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mb-10 flex items-end justify-between gap-5">
           <div>
             <span className="eyebrow">Featured</span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Trending courses
+              Fresh on VeoLMS
             </h2>
             <p className="mt-2 font-medium text-muted-foreground">
-              Popular picks to get you started.
+              The latest courses, hot off the press.
             </p>
           </div>
           <Button variant="outline" asChild className="hidden sm:inline-flex">
@@ -175,6 +262,32 @@ export function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Most popular courses */}
+      {(popular ?? []).length > 0 && (
+        <section className="bg-tint2">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+            <div className="mb-10 flex items-end justify-between gap-5">
+              <div>
+                <span className="eyebrow text-violet">Most popular</span>
+                <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+                  What learners love
+                </h2>
+                <p className="mt-2 font-medium text-muted-foreground">
+                  The most-enrolled courses right now.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {(popular ?? [])
+                .slice(0, 4)
+                .map((course) => (
+                  <CourseCard key={course.id} course={course} />
+                ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Value props */}
       <section className="bg-tint2">
@@ -218,6 +331,49 @@ export function HomePage() {
                   {desc}
                 </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <span className="eyebrow text-teal">Loved by learners</span>
+        <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          Don’t just take our word for it
+        </h2>
+        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {TESTIMONIALS.map((t) => (
+            <figure key={t.name} className="pop flex h-full flex-col p-6">
+              <div className="flex gap-0.5 text-amber" aria-hidden>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-amber" />
+                ))}
+              </div>
+              <blockquote className="mt-4 flex-1 font-medium leading-relaxed text-foreground">
+                “{t.quote}”
+              </blockquote>
+              <figcaption className="mt-5 border-t-2 border-dashed border-border pt-4">
+                <p className="font-bold">{t.name}</p>
+                <p className="text-sm font-medium text-muted-foreground">{t.role}</p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="bg-tint2">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <span className="eyebrow">FAQ</span>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+              Questions, answered
+            </h2>
+          </div>
+          <div className="mt-10 space-y-4">
+            {FAQS.map((f) => (
+              <Faq key={f.q} q={f.q} a={f.a} />
             ))}
           </div>
         </div>

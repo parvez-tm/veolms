@@ -4,6 +4,7 @@ import { asyncHandler } from '../../../helpers/async-handler';
 import {
   completeLesson,
   getCourseProgress,
+  getRecentlyWatched,
   updatePosition,
 } from './progress-controller';
 
@@ -11,6 +12,7 @@ const router = Router();
 
 router.post('/completeLesson', auth_middleware, asyncHandler(completeLesson));
 router.post('/updatePosition', auth_middleware, asyncHandler(updatePosition));
+router.get('/recent', auth_middleware, asyncHandler(getRecentlyWatched));
 router.get(
   '/getCourseProgress/:courseId',
   auth_middleware,

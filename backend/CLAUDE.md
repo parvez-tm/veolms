@@ -17,7 +17,12 @@ Local run needs Postgres + Redis. Smoke-testing locally: `docker run` throwaway 
 
 - **Entity triad** per resource under `src/routes/control/<entity>/`: `<entity>-api.ts` (routes), `-controller.ts` (handlers), `-model.ts` (Sequelize model). Resources: user, role, menu, permission (RBAC admin panel).
 - **Controllers throw `ApiError(status, msg)`** and are wrapped in `asyncHandler` in the route files. A central `errorHandler` ([middleware/error-middleware.ts](src/middleware/error-middleware.ts)) maps `ApiError` + Sequelize errors (Unique→409, Validation→400, FK→409) to responses. Do not write per-handler try/catch.
-- **Auth**: `auth_middleware` verifies the JWT and checks a Redis-cached **role permission version**; if the role's `lastPermissionUpdate` is newer than the token's, it returns 403 (re-login). Changing permissions calls `invalidateRolePermissions(roleId)`. Redis is only a cache, so it degrades to Postgres if down.
+- **Auth (cookie sessions)**: the access JWT rides in an **httpOnly cookie** (`access_token`), not a response body. `auth_middleware` reads it from the cookie or a `Bearer` header, verifies it, and checks a Redis-cached **role permission version**; if the role's `lastPermissionUpdate` is newer than the token's, it returns 403 (re-login). Changing permissions calls `invalidateRolePermissions(roleId)`. Redis is only a cache, so it degrades to Postgres if down.
+  - A rotating **refresh token** (opaque, SHA-256-hashed in `refresh_tokens`) in an httpOnly cookie backs `POST /user/refresh` (consume-and-reissue), so sessions survive the short access TTL and a browser close. `POST /user/logout` revokes it.
+  - **CSRF**: cookie-authenticated, state-changing requests must send `X-CSRF-Token` matching the readable `csrf_token` cookie (double-submit, enforced in `auth_middleware`). See `services/token-service.ts`.
+  - Email-backed flows (`forgot-password`/`reset-password`/`verify-email`, non-blocking verification) live in the user controller + `services/email-service.ts`.
+- **Control-panel routes are Admin-only**: `/role`, `/permission`, `/menu`, and user listing (`getAllUsers`) require `requireRole('Admin')` (closed a privilege-escalation hole). `getUserById`/`getAvatar` are self-or-admin.
+- **Hardening**: `helmet` (secure headers), credentialed CORS (`credentials: true`), and rate limiters are mounted in `app.ts`.
 - **Config** is centralized + validated in [config/env.ts](src/config/env.ts) (`env.*`). Never read `process.env` directly elsewhere; never hardcode secrets. Add new vars there + in [env.d.ts](env.d.ts) + [.env.example](.env.example).
 - **IDs are BIGSERIAL integers** (not UUIDs). `id_checker_middleware` validates `^\d+$`.
 - **Schema** is created via `sequelize.sync({ alter: !production })` in [db/connection.ts](src/db/connection.ts); seeding is idempotent (only when DB empty). No migrations yet.
@@ -43,7 +48,7 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
 - **Progress**: `LessonProgress` is upserted race-safely (catch unique violation →
   re-fetch). `unenroll` deletes the user's progress for the course in a transaction.
   Completion % is always computed live from lesson/progress counts.
-- Routers mounted in [routes.ts](src/routes.ts): `/category /course /section /lesson /enrollment /progress /media /payment`.
+- Routers mounted in [routes.ts](src/routes.ts): `/category /course /section /lesson /enrollment /progress /media /payment /stats /contact`. Public (no auth): `/course/catalog`, `/course/getCourseById/:id` (optional auth), `/category/catalog`, `/lesson/getPlayback/:id` (optional auth, so free preview lessons play anonymously), `/contact`.
 - Demo logins (seeded, dev only): `instructor@veolms.local` / `Instructor@123`,
   `student@veolms.local` / `Student@123`. A demo catalog (4 published courses incl. a free
   one, each 2 sections × 5 lessons) is seeded too. Video lessons are seeded **without a

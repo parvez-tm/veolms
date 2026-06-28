@@ -1,0 +1,252 @@
+# Architecture
+
+VeoLMS is a two-tier system: a React SPA talking to a stateless Express API, backed by three external services (Postgres, Redis, Cloudflare R2) and one payment gateway (Razorpay). The API holds no durable local state, so it scales horizontally and redeploys by container swap.
+
+---
+
+## System diagram
+
+```
+                         ┌─────────────────────────────────────────────┐
+                         │  Browser (React 19 SPA, Vite, Tailwind v4)  │
+                         │                                              │
+                         │  axios (withCredentials)  ── cookies         │
+                         │  React Query (server state)                  │
+                         │  hls.js (encrypted HLS playback)             │
+                         └───────────────┬──────────────────────────────┘
+                                         │  HTTPS  (cookies: access/refresh/csrf)
+                                         │  X-CSRF-Token header on mutations
+                                         ▼
+                         ┌─────────────────────────────────────────────┐
+                         │  Express 5 API  (stateless, Dockerized)      │
+                         │                                              │
+                         │  helmet → cors(creds) → cookieParser →       │
+                         │  raw-body(/payment/webhook) → json →         │
+                         │  /api router                                 │
+                         │                                              │
+                         │  auth_middleware  (JWT + CSRF + perm version)│
+                         │  requireRole / loadOwnedCourse  (RBAC)       │
+                         │  rate limiters (auth / payment / webhook)    │
+                         └───┬───────────┬───────────┬──────────┬───────┘
+                             │           │           │          │
+                  ┌──────────▼──┐  ┌─────▼─────┐ ┌───▼─────┐ ┌──▼──────────┐
+                  │ PostgreSQL  │  │  Redis    │ │   R2    │ │  Razorpay   │
+                  │  (Neon)     │  │ (cache)   │ │ (S3 API)│ │  Orders API │
+                  │             │  │           │ │         │ │             │
+                  │ Sequelize   │  │ perm ver  │ │ private │ │ create-order│
+                  │ models +    │  │ TTL cache │ │ bucket: │ │ + webhook   │
+                  │ row locks   │  │ degrades  │ │ video,  │ │ (HMAC)      │
+                  │             │  │ to PG     │ │ HLS,img │ │             │
+                  └─────────────┘  └───────────┘ └─────────┘ └─────────────┘
+                                                      ▲
+                                          ffmpeg (transcode, in-container)
+                                          uploads HLS segments to R2
+```
+
+Redis, R2, and Razorpay are each optional: if a service is unconfigured the related features degrade gracefully (permission lookups fall back to Postgres, video/upload endpoints return 503, paid purchases return 503) rather than crashing the boot.
+
+---
+
+## Request and auth flow
+
+Auth tokens live in cookies, not in `localStorage`, so the access token is never readable by JavaScript (XSS-resistant). There are three cookies:
+
+| Cookie | httpOnly | Contents | Lifetime |
+| --- | --- | --- | --- |
+| `access_token` | yes | Signed JWT (`id`, `roleId`, `lastPermissionUpdate`) | 15 min (`JWT_ACCESS_TTL`) |
+| `refresh_token` | yes | Opaque random 32-byte token; only its sha256 hash is stored in `refresh_tokens` | 30 days (`JWT_REFRESH_TTL_DAYS`) |
+| `csrf_token` | no (readable) | Random 24-byte token, echoed back by the SPA in `X-CSRF-Token` | matches refresh |
+
+### Login
+
+```
+POST /api/user/login
+  → verify password (bcrypt.compare against User.unscoped())
+  → issueSession(res, payload):
+       set access_token cookie (JWT)
+       create refresh_tokens row (sha256 of raw token), set refresh_token cookie
+       set readable csrf_token cookie
+  → 200 { user, csrf }
+```
+
+### Authenticated request
+
+`auth_middleware` runs on protected routes and does four things in order:
+
+1. If the body is a multipart `data` JSON envelope, parse and DOMPurify-sanitize it.
+2. Read the token: a `Bearer` header (API clients/tests) takes precedence, otherwise the `access_token` cookie.
+3. **CSRF guard:** for a cookie-authenticated request with an unsafe method (anything but GET/HEAD/OPTIONS), require `X-CSRF-Token` to equal the `csrf_token` cookie. Bearer requests are exempt because a browser never auto-attaches a `Bearer` header. An attacker's site can forge a cookie-bearing request but cannot read the cookie to set the matching header, so the double-submit check fails (403).
+4. **Permission freshness:** compare the token's `lastPermissionUpdate` against the role's current permission version (read from Redis, falling back to Postgres). If an admin changed the role's permissions after the token was issued, return 403 ("please login again").
+
+### Silent refresh (what makes short tokens usable)
+
+The access token deliberately lives only 15 minutes. The SPA's axios response interceptor turns that into an invisible experience:
+
+```
+any request → 401
+  → single-flight POST /api/user/refresh   (uses refresh_token cookie)
+       consumeRefreshToken: find row by hash, DELETE it (rotation), check expiry
+       issueSession: brand-new access + refresh + csrf
+  → retry the original request once
+  → if refresh fails: clear cached profile, ProtectedRoute redirects to /login
+```
+
+Refresh tokens **rotate**: every refresh deletes the presented row and issues a fresh one, so a stolen-and-replayed refresh token is single-use. A burst of concurrent 401s collapses into exactly one `/refresh` call (single-flight promise).
+
+---
+
+## Data model
+
+IDs are `BIGSERIAL` integers (not UUIDs), and `pg.defaults.parseInt8 = true` returns them as JS numbers. Associations are defined once in `db/associations.ts`. Money is stored in **paise** (integer minor units) end-to-end.
+
+### Entities
+
+```
+Role ──< User ──< RefreshToken
+  │        │
+  │        ├──< Course (instructorId, RESTRICT)
+  │        ├──< Enrollment
+  │        ├──< Payment
+  │        ├──< LessonProgress
+  │        └──< MediaAsset (uploadedById, SET NULL)
+  │
+  └──< Permission >── Menu (self-referencing tree)
+
+Category ──< Course (SET NULL on category delete)
+
+Course ──< Section ──< Lesson          (CASCADE)
+Course ──< Lesson    (denormalized courseId, CASCADE)
+Course ──< Enrollment / Payment / LessonProgress (CASCADE)
+Course  >── MediaAsset  (thumbnailAssetId, bannerAssetId, SET NULL)
+
+Lesson  >── MediaAsset  (videoAssetId, SET NULL)
+User    >── MediaAsset  (avatarAssetId, SET NULL)
+
+Lesson ──< LessonProgress (CASCADE)
+```
+
+### Key tables and rules
+
+| Model | Notable fields | Constraints / rules |
+| --- | --- | --- |
+| `User` | `userName`, `email`, `password` (bcrypt), `roleId`, `isVerified`, reset/verify token hashes | `defaultScope` excludes password + token hashes; unique email + userName; `beforeSave` hashes password only when changed |
+| `Role` / `Menu` / `Permission` | `canCreate/Read/Update/Delete` flags | Permission flags avoid SQL reserved words; Role delete RESTRICTed while users exist |
+| `RefreshToken` | `tokenHash` (sha256), `expiresAt` | Only the hash is stored; deleting a user CASCADE-revokes sessions |
+| `Category` | `name` | Course `categoryId` SET NULL on delete |
+| `Course` | `title`, `subtitle`, `description`, `level`, `language`, `tags[]`, `learningOutcomes[]`, `prerequisites[]`, `whoThisIsFor[]`, `price`, `discountPrice`, `status` | `price`/`discountPrice` in paise; `status` draft/published gates visibility; indexes on `status`, `instructorId` |
+| `Section` | `title`, `position` | CASCADE from course; reorderable |
+| `Lesson` | `type` (video/text), `content` (sanitized HTML or notes), `resources[]`, `videoAssetId`, `videoDurationSec`, `position`, `isPreview` | `courseId` denormalized for cheap access checks; preview lessons playable without enrollment |
+| `MediaAsset` | `storageKey`, `kind`, `status`, `hlsStatus`, `hlsKeyB64`, `hlsPrefix`, probed `width/height/durationSec` | `toJSON` strips `storageKey` + all HLS secrets; unique `storageKey` |
+| `Enrollment` | `status` (active/completed) | **unique `(userId, courseId)`**: one enrollment per user per course |
+| `LessonProgress` | `completed`, `completedAt`, `lastPositionSec` | **unique `(userId, lessonId)`**: one progress row per user per lesson |
+| `Payment` | `razorpayOrderId` (unique), `razorpayPaymentId`, `amount` (paise), `status` (created/paid/failed) | The order id is the idempotency key; status is an auditable state machine |
+
+Completion percentage is never stored; it is computed live from lesson and progress counts so it can never drift.
+
+---
+
+## Video / HLS pipeline
+
+The design goal is that a logged-in, enrolled user cannot trivially download the source video as a single file. The pipeline:
+
+```
+1. Instructor requests an upload URL
+   POST /api/media/upload-url → presigned R2 PUT (short-lived) + a pending MediaAsset row
+
+2. Browser uploads the MP4 directly to R2 (the API never proxies the bytes)
+
+3. POST /api/media/confirm/:id
+   → HEAD the object, mark the asset ready
+   → fire background transcodeToHls(assetId)
+
+4. transcodeToHls (services/hls-service.ts), needs ffmpeg on PATH:
+   → ffprobe the source height
+   → ffmpeg builds adaptive renditions (360/480/720/1080, capped at source)
+        AES-128 encrypted (-hls_key_info_file), with variant playlists + master.m3u8
+   → upload all .m3u8 + .ts segments to R2 under hls/<assetId>/
+   → store the 16-byte AES key (hlsKeyB64) on the asset, set hlsStatus='ready'
+   → DELETE the raw MP4 (no single downloadable file remains)
+   → on any failure: hlsStatus='failed' (graceful fallback to presigned MP4)
+
+5. Playback
+   GET /api/lesson/getPlayback/:id  (optional-auth; access asserted in controller)
+     → if hlsStatus ready: issue a short-lived HLS ticket (signed, ~2h) and return
+       { source:'hls', playlistUrl with ?ticket }
+     → else: { source:'r2', short-lived presigned MP4 } (fallback)
+
+   hls.js then fetches, all gated by the ticket:
+     GET /api/media/hls/:id/playlist?ticket&p=master.m3u8
+        master → variant URIs rewritten back through this gated endpoint
+        variant → key URI rewritten to the gated key endpoint;
+                  segment names rewritten to short-lived presigned R2 GET URLs
+        (p is whitelisted /^[\w.-]+\.m3u8$/ to block path traversal)
+     GET /api/media/hls/:id/key?ticket   → the raw 16 bytes, only with a valid ticket
+```
+
+In the browser Network tab, segments are AES-encrypted blobs and the decryption key is only served against a valid ticket, so there is no single file to save. hls.js handles adaptive bitrate automatically; the custom player exposes a quality picker (Auto + each rendition), plus resume, progress save, speed, PiP, fullscreen, and keyboard shortcuts. Native HLS (Safari) is the fallback.
+
+**This is not DRM.** Within the ticket window an enrolled, determined user could script ffmpeg to reassemble the stream, and screen capture defeats any web player. True device DRM (Widevine/FairPlay) is the only full stop; the trade-off is discussed in [CHALLENGES.md](CHALLENGES.md).
+
+The R2 bucket must allow cross-origin GET from the frontend origin, because hls.js fetches the presigned segment URLs directly from R2.
+
+---
+
+## Payment flow
+
+Razorpay is integrated through its **Orders REST API** with `fetch` and HTTP Basic auth (no SDK dependency), and all signatures are verified with Node's `crypto`. The amount is always derived on the server from `course.price`; the client never sends a price.
+
+```
+Free course:
+  POST /api/enrollment/enroll
+    → isFreeCourse(price) must be true (price === 0), else 402
+    → upsert enrollment   (paid courses are NEVER enrollable here)
+
+Paid course:
+  POST /api/payment/create-order
+    → server reads course.price (paise), enforces MIN_PAID_PRICE (≥ ₹1)
+    → reuse an existing open 'created' order, or POST api.razorpay.com/v1/orders
+    → if a 'paid' payment already exists for (user,course): re-grant enrollment free
+      (perpetual entitlement: unenroll → re-enroll never double-charges)
+    → 10s AbortSignal.timeout so a stalled gateway can't pin a DB slot open
+
+  Browser Razorpay Checkout → returns razorpay_{order_id,payment_id,signature}
+
+  Two independent confirmation paths, both idempotent:
+
+  (a) POST /api/payment/verify   (checkout callback)
+        → type/length-validate the razorpay_* fields before they touch the DB/HMAC
+        → HMAC_SHA256(order_id|payment_id, key_secret) == signature  (timingSafeEqual)
+        → conditional UPDATE WHERE status='created' (can't regress a webhook-paid row)
+        → fulfillPayment()
+
+  (b) POST /api/payment/webhook  (source of truth, server-to-server)
+        → raw bytes captured by express.raw() BEFORE express.json()
+        → HMAC_SHA256(raw_body, webhook_secret) == X-Razorpay-Signature
+        → fulfillPayment()
+
+  fulfillPayment() (idempotent under concurrency):
+        → lock the payment row (LOCK.UPDATE)
+        → upsert enrollment in a SAVEPOINT; a concurrent unique-violation is
+          treated as success, so verify + webhook for one order grant exactly
+          one enrollment
+
+  POST /api/payment/cleanup  (Admin/cron): expire stale 'created' orders
+```
+
+The webhook is the source of truth: even if the browser callback never fires (user closes the tab), the webhook still fulfills. Money stays in integer paise from end to end, with no floating point anywhere.
+
+---
+
+## Key design decisions and trade-offs
+
+**`sequelize.sync` instead of migrations.** Schema is created with `sync({ alter })` in dev and create-only in prod, with idempotent seeders that run only on an empty database. This keeps the challenge fast to stand up. The trade-off is that production schema changes need real migrations before scaling writes; this is a known, documented gap, not an oversight.
+
+**Redis is a cache, never a dependency.** Redis caches the role-permission version that `auth_middleware` checks on every request. Every read is wrapped so a Redis outage falls back to Postgres instead of 500-ing. Crucially, the rate limiter is deliberately **not** Redis-backed, so a Redis outage cannot break every rate-limited route. The cost is that the in-memory rate-limit store is per-instance (fine for a single node; swap in `rate-limit-redis` to scale horizontally).
+
+**Razorpay with no SDK.** Calling the Orders REST API directly with `fetch` plus `crypto` HMAC keeps the dependency surface tiny and makes the exact request/response and the signature math fully auditable and unit-testable offline. The trade-off is that we maintain a small amount of request-shaping code the SDK would otherwise own.
+
+**Cloudflare R2 over S3.** R2 is S3-API-compatible but has **$0 egress**, which matters enormously for streaming video. The bucket is private; the DB stores only the object key, which is never serialized to clients. See [COST.md](COST.md) for the numbers.
+
+**Encrypted HLS instead of true DRM.** AES-128 encrypted ABR HLS with ticket-gated keys raises the bar from "right-click, save video" to "script ffmpeg within a short ticket window," without the licensing-server complexity and cost of Widevine/FairPlay. It is an honest 80/20: real protection against casual downloading, not an unbreakable wall.
+
+**In-container ffmpeg transcode.** Transcoding runs in the API container after upload-confirm. It is simple and has no extra moving parts, but it competes with request handling for CPU on a small box. The documented scaling lever is an on-demand transcode worker that spins up per upload and shuts down.

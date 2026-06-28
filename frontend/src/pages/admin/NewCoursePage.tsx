@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, IndianRupee, Sparkles } from 'lucide-react'
 import { useCreateCourse } from '@/features/admin/api'
+import { useCategories } from '@/features/courses/api'
 import { apiErrorMessage } from '@/lib/api'
 import { Decor } from '@/components/layout/Decor'
 import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
@@ -12,6 +13,26 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const
+
+/** Split a textarea (one item per line) into a trimmed, non-empty string[]. */
+function linesToList(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+}
+
+/** Split comma-separated tags into a trimmed, de-duped string[]. */
+function csvToTags(text: string): string[] {
+  return Array.from(
+    new Set(
+      text
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    )
+  )
+}
 
 /** Small section heading inside the form card. */
 function SectionHeader({ title, hint }: { title: string; hint?: string }) {
@@ -30,15 +51,24 @@ function SectionHeader({ title, hint }: { title: string; hint?: string }) {
 export function NewCoursePage() {
   const navigate = useNavigate()
   const create = useCreateCourse()
+  const { data: categories } = useCategories()
 
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [description, setDescription] = useState('')
   const [thumbnail, setThumbnail] = useState<ThumbnailValue>({ assetId: null })
+  const [banner, setBanner] = useState<ThumbnailValue>({ assetId: null })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('beginner')
+  const [categoryId, setCategoryId] = useState('')
+  const [language, setLanguage] = useState('English')
+  const [tags, setTags] = useState('')
+  const [outcomes, setOutcomes] = useState('')
+  const [prerequisites, setPrerequisites] = useState('')
+  const [whoFor, setWhoFor] = useState('')
   // Empty = free (₹0). Kept empty (with a "0" placeholder) so there's no leading
   // zero to delete before typing a price.
   const [priceRupees, setPriceRupees] = useState('')
+  const [discountRupees, setDiscountRupees] = useState('')
   const [error, setError] = useState('')
 
   const rupees = Number(priceRupees)
@@ -55,17 +85,42 @@ export function NewCoursePage() {
       setError('Paid courses must be at least ₹1')
       return
     }
+    const price = Math.round(rupees * 100) // ₹ -> paise
+    // Discount is optional; only validate/send when a value was entered.
+    let discountPrice: number | undefined
+    if (discountRupees.trim() !== '') {
+      const dRupees = Number(discountRupees)
+      if (!Number.isFinite(dRupees) || dRupees < 0) {
+        setError('Enter a valid discount price')
+        return
+      }
+      discountPrice = Math.round(dRupees * 100)
+      if (discountPrice >= price) {
+        setError('Discount price must be less than the price')
+        return
+      }
+    }
     try {
       // The cover is an uploaded image asset (R2), or none.
       const thumb =
         thumbnail.assetId != null ? { thumbnailAssetId: thumbnail.assetId } : {}
+      const bannerField =
+        banner.assetId != null ? { bannerAssetId: banner.assetId } : {}
       const course = await create.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || undefined,
         description: description.trim() || undefined,
         ...thumb,
+        ...bannerField,
         level,
-        price: Math.round(rupees * 100), // ₹ -> paise
+        price,
+        ...(discountPrice != null ? { discountPrice } : {}),
+        ...(categoryId ? { categoryId: Number(categoryId) } : {}),
+        language: language.trim() || undefined,
+        tags: csvToTags(tags),
+        learningOutcomes: linesToList(outcomes),
+        prerequisites: linesToList(prerequisites),
+        whoThisIsFor: linesToList(whoFor),
       })
       navigate('/admin/courses', { replace: true })
       void course
@@ -140,6 +195,30 @@ export function NewCoursePage() {
               rows={5}
             />
           </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                id="category"
+                value={categoryId}
+                onChange={setCategoryId}
+                placeholder="Choose a category"
+                options={(categories ?? []).map((c) => ({
+                  value: String(c.id),
+                  label: c.name,
+                }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="language">Language</Label>
+              <Input
+                id="language"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                placeholder="English"
+              />
+            </div>
+          </div>
         </section>
 
         <div className="border-t-2 border-dashed border-border" />
@@ -151,6 +230,17 @@ export function NewCoursePage() {
             hint="Shown on the catalog card and the course page."
           />
           <ThumbnailField value={thumbnail} onChange={setThumbnail} hideLabel />
+        </section>
+
+        <div className="border-t-2 border-dashed border-border" />
+
+        {/* Banner image */}
+        <section className="space-y-4">
+          <SectionHeader
+            title="Banner image"
+            hint="Wide hero image shown at the top of the course page."
+          />
+          <ThumbnailField value={banner} onChange={setBanner} hideLabel />
         </section>
 
         <div className="border-t-2 border-dashed border-border" />
@@ -200,6 +290,89 @@ export function NewCoursePage() {
                   : `Students pay ₹${rupees.toLocaleString('en-IN')} once`}
               </span>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="discount">Discount price</Label>
+              <div className="relative">
+                <IndianRupee className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="discount"
+                  type="number"
+                  min={0}
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={discountRupees}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setDiscountRupees(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <p className="text-xs font-medium text-muted-foreground">
+                Optional. Must be less than the price.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="border-t-2 border-dashed border-border" />
+
+        {/* What students will get */}
+        <section className="space-y-5">
+          <SectionHeader
+            title="Details & marketing"
+            hint="Help learners decide. Categories, tags, and lists shown on the course page."
+          />
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="javascript, web, beginners"
+            />
+            <p className="text-xs font-medium text-muted-foreground">
+              Comma-separated.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="outcomes">Learning outcomes</Label>
+            <Textarea
+              id="outcomes"
+              value={outcomes}
+              onChange={(e) => setOutcomes(e.target.value)}
+              placeholder={'Build a full web app\nDeploy to production\nWrite tests'}
+              rows={4}
+            />
+            <p className="text-xs font-medium text-muted-foreground">
+              One item per line.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="prerequisites">Prerequisites</Label>
+            <Textarea
+              id="prerequisites"
+              value={prerequisites}
+              onChange={(e) => setPrerequisites(e.target.value)}
+              placeholder={'Basic HTML & CSS\nA code editor'}
+              rows={4}
+            />
+            <p className="text-xs font-medium text-muted-foreground">
+              One item per line.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="whoFor">Who this is for</Label>
+            <Textarea
+              id="whoFor"
+              value={whoFor}
+              onChange={(e) => setWhoFor(e.target.value)}
+              placeholder={'Aspiring web developers\nDesigners learning to code'}
+              rows={4}
+            />
+            <p className="text-xs font-medium text-muted-foreground">
+              One item per line.
+            </p>
           </div>
         </section>
 

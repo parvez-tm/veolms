@@ -7,6 +7,7 @@ import {
   addSection,
   deleteSection,
   getSectionsByCourse,
+  reorderSections,
   updateSection,
 } from './section-controller';
 
@@ -16,6 +17,7 @@ const instructor = requireRole('Admin', 'Instructor');
 
 router.get('/getByCourse/:courseId', auth_middleware, asyncHandler(getSectionsByCourse));
 router.post('/addSection', auth_middleware, instructor, asyncHandler(addSection));
+router.post('/reorder', auth_middleware, instructor, asyncHandler(reorderSections));
 router.put(
   '/updateSection/:id',
   auth_middleware,

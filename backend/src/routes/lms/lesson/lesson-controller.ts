@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Lesson, LessonType } from './lesson-model';
+import { Lesson, LessonType, LessonResource } from './lesson-model';
 import { Section } from '../section/section-model';
 import { Course } from '../course/course-model';
 import { Enrollment } from '../enrollment/enrollment-model';
@@ -17,6 +17,7 @@ import {
   purgeAssetsByIds,
   assetReferenceCount,
 } from '../../../services/media-service';
+import { sequelize } from '../../../db/sequelize';
 import { bodyId, nonNegInt } from '../../../helpers/parse-id';
 
 const TYPES: LessonType[] = ['video', 'text'];
@@ -36,6 +37,25 @@ function optionalString(value: unknown, name: string): string | null {
     throw new ApiError(400, `${name} must be a string`);
   }
   return value;
+}
+
+/** Parse + validate the optional resources list (title + http(s) url pairs). */
+function parseResources(value: unknown): LessonResource[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return [];
+  const out: LessonResource[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const title = String((raw as { title?: unknown }).title ?? '').trim();
+    const url = String((raw as { url?: unknown }).url ?? '').trim();
+    if (!title || !url) continue;
+    if (!/^https?:\/\//i.test(url)) {
+      throw new ApiError(400, 'Resource URLs must start with http:// or https://');
+    }
+    out.push({ title: title.slice(0, 200), url: url.slice(0, 2000) });
+    if (out.length >= 30) break;
+  }
+  return out;
 }
 
 /** Verify a video MediaAsset is the user's own, a video, and uploaded. */
@@ -92,13 +112,18 @@ async function assertLessonAccess(
     throw new ApiError(403, 'This course is not available');
   }
   if (!lesson.isPreview) {
+    // Non-preview lessons require an authenticated, enrolled user.
+    if (!user) {
+      throw new ApiError(401, 'Please log in and enroll to access this lesson');
+    }
     const enrolled = await Enrollment.findOne({
-      where: { userId: user!.id, courseId: lesson.courseId },
+      where: { userId: user.id, courseId: lesson.courseId },
     });
     if (!enrolled) {
       throw new ApiError(403, 'Enroll in the course to access this lesson');
     }
   }
+  // Preview lessons of a published course are viewable anonymously (no user needed).
 }
 
 export const addLesson = async (req: Request, res: Response): Promise<void> => {
@@ -127,14 +152,17 @@ export const addLesson = async (req: Request, res: Response): Promise<void> => {
     };
   }
 
+  const description = optionalString(req.body.description, 'description');
   const lesson = await Lesson.create({
     sectionId: section.id,
     courseId: section.courseId,
     title: requireString(title, 'title'),
+    description: description ? sanitizeData(description) : null,
     type,
     position:
       req.body.position === undefined ? 0 : nonNegInt(req.body.position, 'position'),
     isPreview: !!req.body.isPreview,
+    resources: parseResources(req.body.resources) ?? [],
     ...contentFields,
   });
   res.status(201).json({ data: lesson, message: 'Lesson created successfully' });
@@ -150,8 +178,16 @@ export const updateLesson = async (
   }
   await loadOwnedCourse(lesson.courseId, req.user);
 
-  const { title, position, isPreview, videoAssetId, videoDurationSec, content } =
-    req.body ?? {};
+  const {
+    title,
+    description,
+    position,
+    isPreview,
+    videoAssetId,
+    videoDurationSec,
+    content,
+    resources,
+  } = req.body ?? {};
 
   // A text lesson cannot acquire a video source.
   if (lesson.type === 'text' && videoAssetId !== undefined) {
@@ -159,6 +195,11 @@ export const updateLesson = async (
   }
 
   if (title !== undefined) lesson.title = requireString(title, 'title');
+  if (description !== undefined) {
+    const d = optionalString(description, 'description');
+    lesson.description = d ? sanitizeData(d) : null;
+  }
+  if (resources !== undefined) lesson.resources = parseResources(resources) ?? [];
   if (position !== undefined) lesson.position = nonNegInt(position, 'position');
   if (isPreview !== undefined) lesson.isPreview = !!isPreview;
 
@@ -235,7 +276,8 @@ export const getLessonPlayback = async (
     // Preferred: AES-128 encrypted HLS, where playlist + key are ticket-gated and the
     // raw file is gone, so there's no single downloadable video in the Network tab.
     if (asset.hlsStatus === 'ready') {
-      const ticket = issueHlsTicket(asset.id, req.user!.id);
+      // userId 0 for anonymous preview viewers; the ticket still gates access.
+      const ticket = issueHlsTicket(asset.id, req.user?.id ?? 0);
       const base = `${req.protocol}://${req.get('host')}`;
       res.status(200).json({
         data: {
@@ -261,6 +303,38 @@ export const getLessonPlayback = async (
   }
 
   throw new ApiError(404, 'No video for this lesson');
+};
+
+/**
+ * Reorder lessons within a section. Body: { sectionId, order: number[] } where
+ * `order` is the lesson ids top-to-bottom. Positions are rewritten to the array
+ * index, scoped to the section so foreign ids are ignored.
+ */
+export const reorderLessons = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { sectionId, order } = req.body ?? {};
+  if (!sectionId || !Array.isArray(order)) {
+    throw new ApiError(400, 'sectionId and an order array are required');
+  }
+  const section = await Section.findByPk(bodyId(sectionId, 'sectionId'));
+  if (!section) {
+    throw new ApiError(404, 'Section not found');
+  }
+  await loadOwnedCourse(section.courseId, req.user);
+
+  await sequelize.transaction(async (transaction) => {
+    let position = 0;
+    for (const raw of order) {
+      const id = bodyId(raw, 'order[]');
+      await Lesson.update(
+        { position: position++ },
+        { where: { id, sectionId: section.id }, transaction }
+      );
+    }
+  });
+  res.status(200).json({ message: 'Lessons reordered' });
 };
 
 export const deleteLesson = async (

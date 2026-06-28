@@ -2,27 +2,46 @@ import { Router } from 'express';
 import { auth_middleware } from '../../../middleware/auth-middleware';
 import { requireRole } from '../../../middleware/role-middleware';
 import { id_checker_middleware } from '../../../middleware/id-validator-middleware';
-import { authLimiter } from '../../../middleware/rate-limit-middleware';
+import { authLimiter, refreshLimiter } from '../../../middleware/rate-limit-middleware';
 import { profileImage } from '../../../services/multer-service';
 import { asyncHandler } from '../../../helpers/async-handler';
 import {
   addUser,
   becomeInstructor,
   deleteUser,
+  forgotPassword,
   getAllUsers,
   getAvatar,
   getUserById,
   login,
+  logout,
+  me,
+  refresh,
   register,
+  resendVerification,
+  resetPassword,
   updateUser,
+  verifyEmail,
 } from './user-controller';
 
 const router = Router();
 
 router.post('/login', authLimiter, asyncHandler(login));
 router.post('/register', authLimiter, asyncHandler(register));
+// Session lifecycle (cookie-based). refresh/logout work without a valid access
+// token (they rely on the refresh cookie), so they skip auth_middleware.
+router.post('/refresh', refreshLimiter, asyncHandler(refresh));
+router.post('/logout', asyncHandler(logout));
+router.get('/me', auth_middleware, asyncHandler(me));
+// Password reset + email verification (public token-based, rate-limited).
+router.post('/forgot-password', authLimiter, asyncHandler(forgotPassword));
+router.post('/reset-password', authLimiter, asyncHandler(resetPassword));
+router.post('/verify-email', authLimiter, asyncHandler(verifyEmail));
+router.post('/resend-verification', auth_middleware, asyncHandler(resendVerification));
 router.post('/become-instructor', auth_middleware, asyncHandler(becomeInstructor));
-router.get('/getAllUsers', auth_middleware, asyncHandler(getAllUsers));
+// Listing all users (with emails) is Admin-only. getUserById/getAvatar are
+// self-or-admin (enforced in the controller) so a user can read their own profile.
+router.get('/getAllUsers', auth_middleware, requireRole('Admin'), asyncHandler(getAllUsers));
 router.get(
   '/getUserById/:id',
   auth_middleware,

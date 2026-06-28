@@ -2,14 +2,16 @@ import { Link } from 'react-router-dom'
 import {
   BookOpen,
   CheckCircle2,
-  FileEdit,
   ArrowRight,
   Sparkles,
   Receipt,
   Globe,
+  Users,
+  GraduationCap,
+  Activity,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useManagedCourses } from '@/features/admin/api'
+import { useManagedCourses, useStats } from '@/features/admin/api'
 import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
@@ -87,9 +89,17 @@ const STEPS = [
 export function AdminDashboardPage() {
   const { isAdmin, user } = useAuth()
   const { data, isLoading } = useManagedCourses(isAdmin)
+  const { data: stats, isLoading: statsLoading } = useStats()
   const courses = data ?? []
   const published = courses.filter((c) => c.status === 'published').length
-  const drafts = courses.length - published
+
+  // Prefer server-side stats; fall back to course-list-derived counts while
+  // they load. `…` is shown only when neither source has data yet.
+  const totalCourses = stats?.totalCourses ?? (isLoading ? null : courses.length)
+  const publishedCount =
+    stats?.publishedCourses ?? (isLoading ? null : published)
+  const num = (v: number | null | undefined) =>
+    v == null && statsLoading ? '…' : (v ?? 0)
 
   return (
     <div className="space-y-8">
@@ -112,24 +122,44 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Total courses"
-          value={isLoading ? '…' : courses.length}
+          value={totalCourses == null ? '…' : totalCourses}
           icon={BookOpen}
           tone="bg-primary"
         />
         <StatCard
           label="Published"
-          value={isLoading ? '…' : published}
+          value={publishedCount == null ? '…' : publishedCount}
           icon={CheckCircle2}
           tone="bg-teal"
         />
         <StatCard
-          label="Drafts"
-          value={isLoading ? '…' : drafts}
-          icon={FileEdit}
+          label="Total students"
+          value={num(stats?.totalStudents)}
+          icon={GraduationCap}
+          tone="bg-violet"
+        />
+        <StatCard
+          label="Enrollments"
+          value={num(stats?.totalEnrollments)}
+          icon={Users}
           tone="bg-amber"
+        />
+        <StatCard
+          label="Revenue"
+          value={
+            stats ? formatPrice(stats.revenue) : statsLoading ? '…' : formatPrice(0)
+          }
+          icon={Receipt}
+          tone="bg-teal"
+        />
+        <StatCard
+          label="Active users (30d)"
+          value={num(stats?.activeUsers)}
+          icon={Activity}
+          tone="bg-primary"
         />
       </div>
 

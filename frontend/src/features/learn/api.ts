@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 
 export interface ProgressSummary {
   courseId: number
@@ -18,6 +19,27 @@ export interface Playback {
   source: 'r2' | 'hls'
   url: string
   expiresIn?: number
+}
+
+export interface RecentlyWatched {
+  lessonId: number
+  courseId: number
+  completed: boolean
+  lastPositionSec: number
+  updatedAt: string
+  lessonTitle: string
+  courseTitle: string
+}
+
+/** The student's most recently watched lessons (max 8, newest first). */
+export function useRecentlyWatched() {
+  const { isAuthenticated } = useAuth()
+  return useQuery({
+    queryKey: ['progress', 'recent'],
+    queryFn: async () =>
+      (await api.get<{ data: RecentlyWatched[] }>('/progress/recent')).data.data,
+    enabled: isAuthenticated,
+  })
 }
 
 export function useCourseProgress(courseId: string | undefined, enabled: boolean) {

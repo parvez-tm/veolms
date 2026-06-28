@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { Op, Transaction } from 'sequelize';
 import { User } from './user-model';
 import { Role } from '../role/role-model';
@@ -8,6 +8,18 @@ import { Permission } from '../permission/permission-model';
 import { Menu } from '../menu/menu-model';
 import { env } from '../../../config/env';
 import { sequelize } from '../../../db/sequelize';
+import {
+  issueSession,
+  consumeRefreshToken,
+  revokeRefreshToken,
+  revokeAllForUser,
+  clearSessionCookies,
+  REFRESH_COOKIE,
+} from '../../../services/token-service';
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from '../../../services/email-service';
 import {
   calculatePaginationInfo,
   parseRequestParams,
@@ -86,6 +98,21 @@ async function buildAvatarUrl(avatarAssetId: number | null): Promise<string | nu
   return url;
 }
 
+const sha256 = (value: string): string =>
+  crypto.createHash('sha256').update(value).digest('hex');
+
+/** Build the JWT/req.user payload from a user + its (loaded) role. */
+function buildPayload(user: User, role: Role): JwtPayload {
+  return {
+    id: user.id,
+    userName: user.userName,
+    email: user.email,
+    roleId: role.id,
+    roleName: role.roleName,
+    lastPermissionUpdate: role.lastPermissionUpdate.toISOString(),
+  };
+}
+
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { userDetail, password } = req.body ?? {};
   if (!userDetail || !password) {
@@ -109,26 +136,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   // Permission map drives the admin-panel nav; an empty map is valid (e.g. a
   // student/instructor with no admin-menu permissions) and must not block login.
   const permissions = await buildPermissionMap(user.role.id);
+  const payload = buildPayload(user, user.role);
 
-  const payload: JwtPayload = {
-    id: user.id,
-    userName: user.userName,
-    email: user.email,
-    roleId: user.role.id,
-    roleName: user.role.roleName,
-    lastPermissionUpdate: user.role.lastPermissionUpdate.toISOString(),
-  };
-
-  // env.jwt.expiresIn is a validated string (e.g. '1d'); cast for the typed API.
-  const token = jwt.sign(payload, env.jwt.secret, {
-    expiresIn: env.jwt.expiresIn as unknown as number,
-  });
+  // Set httpOnly access + rotating refresh cookies; the CSRF token is returned
+  // so the SPA can echo it on mutating requests.
+  const csrfToken = await issueSession(res, payload);
 
   res.status(200).json({
     message: 'Login successful',
-    token,
-    data: payload,
+    data: { ...payload, isVerified: user.isVerified },
     permissions,
+    csrfToken,
   });
 };
 
@@ -165,6 +183,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError(500, 'Student role is not configured');
   }
 
+  // Issue an email-verification token (verification is non-blocking: the account
+  // is usable immediately, and a banner nudges the user to verify).
+  const verifyRaw = crypto.randomBytes(32).toString('hex');
   const created = await User.create({
     userName,
     firstName,
@@ -172,26 +193,29 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     email,
     password, // hashed by the beforeSave hook
     roleId: studentRole.id,
+    emailVerifyTokenHash: sha256(verifyRaw),
+    emailVerifyExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
 
-  const payload: JwtPayload = {
-    id: created.id,
-    userName: created.userName,
-    email: created.email,
-    roleId: studentRole.id,
-    roleName: studentRole.roleName,
-    lastPermissionUpdate: studentRole.lastPermissionUpdate.toISOString(),
-  };
-  const token = jwt.sign(payload, env.jwt.secret, {
-    expiresIn: env.jwt.expiresIn as unknown as number,
-  });
+  // Best-effort: a mail failure must not break signup.
+  try {
+    await sendVerificationEmail(
+      created.email,
+      `${env.appUrl}/verify-email?token=${verifyRaw}`
+    );
+  } catch (err) {
+    console.error('Verification email failed:', (err as Error).message);
+  }
+
+  const payload = buildPayload(created, studentRole);
+  const csrfToken = await issueSession(res, payload);
   const permissions = await buildPermissionMap(studentRole.id);
 
   res.status(201).json({
     message: 'Registration successful',
-    token,
-    data: payload,
+    data: { ...payload, isVerified: false },
     permissions,
+    csrfToken,
   });
 };
 
@@ -229,25 +253,167 @@ export const becomeInstructor = async (
   user.roleId = instructorRole.id; // only roleId changes, so the password hook won't run
   await user.save();
 
-  const payload: JwtPayload = {
-    id: user.id,
-    userName: user.userName,
-    email: user.email,
-    roleId: instructorRole.id,
-    roleName: instructorRole.roleName,
-    lastPermissionUpdate: instructorRole.lastPermissionUpdate.toISOString(),
-  };
-  const token = jwt.sign(payload, env.jwt.secret, {
-    expiresIn: env.jwt.expiresIn as unknown as number,
-  });
+  // Re-issue the session so the new role/permissions take effect immediately.
+  const payload = buildPayload(user, instructorRole);
+  const csrfToken = await issueSession(res, payload);
   const permissions = await buildPermissionMap(instructorRole.id);
 
   res.status(200).json({
     message: 'You are now an instructor',
-    token,
-    data: payload,
+    data: { ...payload, isVerified: user.isVerified },
     permissions,
+    csrfToken,
   });
+};
+
+/**
+ * Rotate the session from a valid refresh cookie: consume the presented refresh
+ * token, re-read the user + role, and issue a fresh access/refresh/CSRF set.
+ */
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+  if (!raw) {
+    throw new ApiError(401, 'No active session');
+  }
+  const userId = await consumeRefreshToken(raw);
+  if (!userId) {
+    // Do NOT clear cookies here: with strict rotation, two tabs refreshing at
+    // once means the slower one presents an already-consumed token. Clearing
+    // would wipe the cookies the winning tab just rotated in and log both out.
+    // Just 401; the client re-syncs (the winner's success broadcasts via the
+    // USER_KEY storage event), and a genuinely dead cookie is harmless.
+    throw new ApiError(401, 'Session expired. Please log in again');
+  }
+  const user = await User.findByPk(userId, { include: [{ model: Role, as: 'role' }] });
+  if (!user || !user.role) {
+    clearSessionCookies(res);
+    throw new ApiError(401, 'Session is no longer valid');
+  }
+  const payload = buildPayload(user, user.role);
+  const csrfToken = await issueSession(res, payload);
+  const permissions = await buildPermissionMap(user.role.id);
+  res.status(200).json({
+    message: 'Session refreshed',
+    data: { ...payload, isVerified: user.isVerified },
+    permissions,
+    csrfToken,
+  });
+};
+
+/** Clear the session: revoke the refresh token and clear all auth cookies. */
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  await revokeRefreshToken(req.cookies?.[REFRESH_COOKIE] as string | undefined);
+  clearSessionCookies(res);
+  res.status(200).json({ message: 'Logged out' });
+};
+
+/** Current authenticated user's profile (used to bootstrap the SPA). */
+export const me = async (req: Request, res: Response): Promise<void> => {
+  const user = await User.findByPk(req.user!.id, {
+    include: [{ model: Role, as: 'role' }],
+  });
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+  res.status(200).json({
+    data: { ...user.toJSON(), avatarUrl: await buildAvatarUrl(user.avatarAssetId ?? null) },
+    message: 'ok',
+  });
+};
+
+/**
+ * Start a password reset. Always responds 200 (never reveals whether the email
+ * exists). If it does, a single-use token (hash stored, 1h expiry) is emailed.
+ */
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body ?? {};
+  if (typeof email === 'string' && EMAIL_RE.test(email)) {
+    const user = await User.unscoped().findOne({ where: { email } });
+    if (user) {
+      const raw = crypto.randomBytes(32).toString('hex');
+      user.passwordResetTokenHash = sha256(raw);
+      user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+      await user.save(); // password not changed → hashing hook is a no-op
+      try {
+        await sendPasswordResetEmail(
+          user.email,
+          `${env.appUrl}/reset-password?token=${raw}`
+        );
+      } catch (err) {
+        console.error('Reset email failed:', (err as Error).message);
+      }
+    }
+  }
+  res
+    .status(200)
+    .json({ message: 'If that email is registered, a reset link has been sent.' });
+};
+
+/** Complete a password reset with a valid token; revokes all existing sessions. */
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  const { token, password } = req.body ?? {};
+  if (typeof token !== 'string' || typeof password !== 'string' || password.length < 8) {
+    throw new ApiError(400, 'A valid token and a password (min 8 characters) are required');
+  }
+  const user = await User.unscoped().findOne({
+    where: {
+      passwordResetTokenHash: sha256(token),
+      passwordResetExpires: { [Op.gt]: new Date() },
+    },
+  });
+  if (!user) {
+    throw new ApiError(400, 'This reset link is invalid or has expired');
+  }
+  user.password = password; // hashed by the beforeSave hook
+  user.passwordResetTokenHash = null;
+  user.passwordResetExpires = null;
+  await user.save();
+  await revokeAllForUser(user.id); // force re-login everywhere
+  res.status(200).json({ message: 'Password updated. Please log in.' });
+};
+
+/** Verify an email address from the emailed token. */
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
+  const { token } = req.body ?? {};
+  if (typeof token !== 'string' || token.trim() === '') {
+    throw new ApiError(400, 'Verification token is required');
+  }
+  const user = await User.unscoped().findOne({
+    where: {
+      emailVerifyTokenHash: sha256(token),
+      emailVerifyExpires: { [Op.gt]: new Date() },
+    },
+  });
+  if (!user) {
+    throw new ApiError(400, 'This verification link is invalid or has expired');
+  }
+  user.isVerified = true;
+  user.emailVerifyTokenHash = null;
+  user.emailVerifyExpires = null;
+  await user.save();
+  res.status(200).json({ message: 'Email verified' });
+};
+
+/** Re-send the verification email to the current user. */
+export const resendVerification = async (req: Request, res: Response): Promise<void> => {
+  const user = await User.unscoped().findByPk(req.user!.id);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+  if (user.isVerified) {
+    res.status(200).json({ message: 'Your email is already verified' });
+    return;
+  }
+  const raw = crypto.randomBytes(32).toString('hex');
+  user.emailVerifyTokenHash = sha256(raw);
+  user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await user.save();
+  try {
+    await sendVerificationEmail(user.email, `${env.appUrl}/verify-email?token=${raw}`);
+  } catch (err) {
+    console.error('Verification email failed:', (err as Error).message);
+  }
+  res.status(200).json({ message: 'Verification email sent' });
 };
 
 /** Build (or read from Redis) the read-enabled permission map for a role. */
@@ -296,6 +462,10 @@ export const getUserById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Self-or-admin: a user may read only their own profile (no enumeration of others).
+  if (req.user!.roleName !== 'Admin' && req.user!.id !== Number(req.params.id)) {
+    throw new ApiError(403, 'You can only view your own profile');
+  }
   const user = await User.findByPk(req.params.id, {
     include: [{ model: Role, as: 'role' }],
   });
@@ -310,6 +480,9 @@ export const getUserById = async (
 
 /** Presigned URL for a user's avatar (issued individually to avoid N presigns in lists). */
 export const getAvatar = async (req: Request, res: Response): Promise<void> => {
+  if (req.user!.roleName !== 'Admin' && req.user!.id !== Number(req.params.id)) {
+    throw new ApiError(403, 'You can only view your own avatar');
+  }
   const user = await User.findByPk(req.params.id, {
     attributes: ['id', 'avatarAssetId'],
   });

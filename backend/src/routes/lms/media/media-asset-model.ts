@@ -32,6 +32,10 @@ export class MediaAsset extends Model<
   declare contentType: string;
   declare originalName: CreationOptional<string | null>;
   declare sizeBytes: CreationOptional<number | null>;
+  /** Probed video dimensions / duration (video only; populated after transcode). */
+  declare width: CreationOptional<number | null>;
+  declare height: CreationOptional<number | null>;
+  declare durationSec: CreationOptional<number | null>;
   declare status: CreationOptional<MediaStatus>;
   /** Nullable so deleting the uploader (SET NULL) doesn't drop assets still in use. */
   declare uploadedById: CreationOptional<ForeignKey<number> | null>;
@@ -70,6 +74,9 @@ MediaAsset.init(
     contentType: { type: DataTypes.STRING, allowNull: false },
     originalName: { type: DataTypes.STRING, allowNull: true },
     sizeBytes: { type: DataTypes.BIGINT, allowNull: true },
+    width: { type: DataTypes.INTEGER, allowNull: true },
+    height: { type: DataTypes.INTEGER, allowNull: true },
+    durationSec: { type: DataTypes.INTEGER, allowNull: true },
     status: {
       type: DataTypes.ENUM('pending', 'ready', 'orphaned'),
       allowNull: false,

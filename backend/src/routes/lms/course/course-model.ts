@@ -29,10 +29,24 @@ export class Course extends Model<
   declare instructorId: ForeignKey<number>;
   /** Uploaded cover image (R2). The display URL is presigned on read; external URLs are not supported. */
   declare thumbnailAssetId: CreationOptional<ForeignKey<number> | null>;
+  /** Uploaded wide banner image (R2) for the course detail hero. */
+  declare bannerAssetId: CreationOptional<ForeignKey<number> | null>;
   /** Price in the smallest currency unit (paise). 0 = free. */
   declare price: CreationOptional<number>;
+  /** Optional sale price (paise), strictly less than `price` when set. */
+  declare discountPrice: CreationOptional<number | null>;
   declare currency: CreationOptional<string>;
   declare level: CreationOptional<CourseLevel>;
+  /** Primary language of instruction (display only). */
+  declare language: CreationOptional<string>;
+  /** Free-text tags for discovery. */
+  declare tags: CreationOptional<string[]>;
+  /** "What you'll learn" bullet points. */
+  declare learningOutcomes: CreationOptional<string[]>;
+  /** Prerequisites bullet points. */
+  declare prerequisites: CreationOptional<string[]>;
+  /** "Who this course is for" bullet points. */
+  declare whoThisIsFor: CreationOptional<string[]>;
   declare status: CreationOptional<CourseStatus>;
   declare publishedAt: CreationOptional<Date | null>;
   declare createdAt: CreationOptional<Date>;
@@ -43,6 +57,7 @@ export class Course extends Model<
   declare sections?: NonAttribute<Section[]>;
   declare lessons?: NonAttribute<Lesson[]>;
   declare thumbnailAsset?: NonAttribute<MediaAsset | null>;
+  declare bannerAsset?: NonAttribute<MediaAsset | null>;
 }
 
 Course.init(
@@ -54,14 +69,22 @@ Course.init(
     categoryId: { type: DataTypes.BIGINT, allowNull: true },
     instructorId: { type: DataTypes.BIGINT, allowNull: false },
     thumbnailAssetId: { type: DataTypes.BIGINT, allowNull: true },
+    bannerAssetId: { type: DataTypes.BIGINT, allowNull: true },
     // Money is stored in minor units (paise) as an integer to avoid float drift.
     price: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    discountPrice: { type: DataTypes.INTEGER, allowNull: true },
     currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'INR' },
     level: {
       type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
       allowNull: false,
       defaultValue: 'beginner',
     },
+    language: { type: DataTypes.STRING, allowNull: false, defaultValue: 'English' },
+    // Stored as JSON arrays of strings (Postgres json); default to empty lists.
+    tags: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+    learningOutcomes: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+    prerequisites: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+    whoThisIsFor: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     status: {
       type: DataTypes.ENUM('draft', 'published'),
       allowNull: false,

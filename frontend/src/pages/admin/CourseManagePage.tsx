@@ -12,6 +12,8 @@ import {
   Eye,
   Lock,
   Settings,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 import {
   useCourse,
@@ -21,6 +23,7 @@ import {
   useDeleteSection,
   useDeleteLesson,
 } from '@/features/admin/manage'
+import { useReorderSections, useReorderLessons } from '@/features/admin/api'
 import { apiErrorMessage } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
 import { Decor } from '@/components/layout/Decor'
@@ -41,6 +44,8 @@ export function CourseManagePage() {
   const updateSection = useUpdateSection(courseId)
   const deleteSection = useDeleteSection(courseId)
   const deleteLesson = useDeleteLesson(courseId)
+  const reorderSections = useReorderSections(courseId)
+  const reorderLessons = useReorderLessons(courseId)
 
   const [newSection, setNewSection] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -97,6 +102,38 @@ export function CourseManagePage() {
       await updateSection.mutateAsync({ id: sectionId, title: title.trim() })
     }
   }
+
+  // Move a section up/down by swapping it with its neighbour, then persist the
+  // full new id order.
+  const moveSection = async (index: number, dir: -1 | 1) => {
+    const target = index + dir
+    if (target < 0 || target >= sections.length) return
+    const order = sections.map((s) => s.id)
+    ;[order[index], order[target]] = [order[target], order[index]]
+    setActionError('')
+    try {
+      await reorderSections.mutateAsync(order)
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Could not reorder sections'))
+    }
+  }
+
+  const moveLesson = async (sectionId: number, index: number, dir: -1 | 1) => {
+    const section = sections.find((s) => s.id === sectionId)
+    const lessons = section?.lessons ?? []
+    const target = index + dir
+    if (target < 0 || target >= lessons.length) return
+    const order = lessons.map((l) => l.id)
+    ;[order[index], order[target]] = [order[target], order[index]]
+    setActionError('')
+    try {
+      await reorderLessons.mutateAsync({ sectionId, order })
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Could not reorder lessons'))
+    }
+  }
+
+  const reordering = reorderSections.isPending || reorderLessons.isPending
 
   return (
     <div className="space-y-6">
@@ -183,11 +220,29 @@ export function CourseManagePage() {
         <h2 className="mb-4 mt-1 text-xl font-extrabold tracking-tight">Curriculum</h2>
 
         <div className="space-y-4">
-          {sections.map((section) => (
+          {sections.map((section, sectionIndex) => (
             <div key={section.id} className="pop overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b border-border bg-tint px-4 py-3">
                 <h3 className="font-bold tracking-tight">{section.title}</h3>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Move section up"
+                    disabled={sectionIndex === 0 || reordering}
+                    onClick={() => moveSection(sectionIndex, -1)}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Move section down"
+                    disabled={sectionIndex === sections.length - 1 || reordering}
+                    onClick={() => moveSection(sectionIndex, 1)}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -212,7 +267,7 @@ export function CourseManagePage() {
               </div>
 
               <ul className="divide-y divide-border">
-                {(section.lessons ?? []).map((lesson) => (
+                {(section.lessons ?? []).map((lesson, lessonIndex) => (
                   <li
                     key={lesson.id}
                     className="flex items-center justify-between gap-3 px-4 py-3"
@@ -235,6 +290,27 @@ export function CourseManagePage() {
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Move lesson up"
+                        disabled={lessonIndex === 0 || reordering}
+                        onClick={() => moveLesson(section.id, lessonIndex, -1)}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Move lesson down"
+                        disabled={
+                          lessonIndex === (section.lessons ?? []).length - 1 ||
+                          reordering
+                        }
+                        onClick={() => moveLesson(section.id, lessonIndex, 1)}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

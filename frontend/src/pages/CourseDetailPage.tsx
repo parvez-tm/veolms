@@ -8,6 +8,10 @@ import {
   BookOpen,
   CheckCircle2,
   Settings,
+  Users,
+  Clock,
+  Globe,
+  CalendarDays,
 } from 'lucide-react'
 import { useCourseDetail } from '@/features/courses/detail'
 import { useMyEnrollments, useCheckout } from '@/features/enrollment/api'
@@ -59,6 +63,23 @@ export function CourseDetailPage() {
       'VeoLMS'
     : 'VeoLMS'
 
+  const studentCount = course.studentCount ?? 0
+  const totalDuration =
+    course.totalDurationSec ??
+    lessons.reduce((sum, l) => sum + (l.videoDurationSec ?? 0), 0)
+  const hasDiscount =
+    !isFree && course.discountPrice != null && course.discountPrice < course.price
+  const effectivePrice = hasDiscount ? course.discountPrice! : course.price
+  const lastUpdated = course.updatedAt
+    ? new Date(course.updatedAt).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
+  const outcomes = course.learningOutcomes ?? []
+  const prerequisites = course.prerequisites ?? []
+  const audience = course.whoThisIsFor ?? []
+
   const onBuy = async () => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: location.pathname } })
@@ -99,7 +120,7 @@ export function CourseDetailPage() {
     }
     return (
       <Button className="w-full" onClick={onBuy} disabled={buying}>
-        {buying ? 'Processing…' : isFree ? 'Enroll for free' : `Buy for ${formatPrice(course.price, course.currency)}`}
+        {buying ? 'Processing…' : isFree ? 'Enroll for free' : `Buy for ${formatPrice(effectivePrice, course.currency)}`}
       </Button>
     )
   }
@@ -108,6 +129,17 @@ export function CourseDetailPage() {
     <>
       {/* Hero */}
       <section className="relative isolate overflow-hidden bg-tint">
+        {course.banner && (
+          <>
+            <img
+              src={course.banner}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover opacity-20"
+            />
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-tint/80" aria-hidden />
+          </>
+        )}
         {/* pastel blobs */}
         <div
           className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
@@ -143,9 +175,30 @@ export function CourseDetailPage() {
                   {course.category.name}
                 </span>
               )}
-              <span className="font-grotesk font-medium">{lessons.length} lessons</span>
-              <span className="text-muted-foreground/40">·</span>
               <span className="font-medium">By {instructor}</span>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4" /> {lessons.length} lessons
+              </span>
+              {totalDuration > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" /> {formatDuration(totalDuration)} total
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-4 w-4" /> {studentCount} students
+              </span>
+              {course.language && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Globe className="h-4 w-4" /> {course.language}
+                </span>
+              )}
+              {lastUpdated && (
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4" /> Updated {lastUpdated}
+                </span>
+              )}
             </div>
             {course.description && (
               <div className="mt-9">
@@ -153,6 +206,52 @@ export function CourseDetailPage() {
                 <p className="mt-3 max-w-2xl whitespace-pre-line leading-relaxed text-foreground/90">
                   {course.description}
                 </p>
+              </div>
+            )}
+
+            {outcomes.length > 0 && (
+              <div className="mt-9 max-w-2xl">
+                <span className="eyebrow text-teal">What you'll learn</span>
+                <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                  {outcomes.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm font-medium text-foreground/90">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {prerequisites.length > 0 && (
+              <div className="mt-9 max-w-2xl">
+                <span className="eyebrow">Prerequisites</span>
+                <ul className="mt-3 list-inside list-disc space-y-1.5 font-medium text-foreground/90">
+                  {prerequisites.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {audience.length > 0 && (
+              <div className="mt-9 max-w-2xl">
+                <span className="eyebrow text-violet">Who this course is for</span>
+                <ul className="mt-3 list-inside list-disc space-y-1.5 font-medium text-foreground/90">
+                  {audience.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(course.tags ?? []).length > 0 && (
+              <div className="mt-9 flex flex-wrap gap-2">
+                {(course.tags ?? []).map((tag) => (
+                  <span key={tag} className="rounded-full bg-tint px-3 py-1 text-xs font-bold text-muted-foreground">
+                    #{tag}
+                  </span>
+                ))}
               </div>
             )}
           </div>
@@ -170,9 +269,16 @@ export function CourseDetailPage() {
                 )}
               </div>
               <div className="space-y-4 p-5">
-                <p className="text-3xl font-extrabold tracking-tight text-primary-strong">
-                  {formatPrice(course.price, course.currency)}
-                </p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-extrabold tracking-tight text-primary-strong">
+                    {isFree ? 'Free' : formatPrice(effectivePrice, course.currency)}
+                  </p>
+                  {hasDiscount && (
+                    <p className="text-lg font-semibold text-muted-foreground line-through">
+                      {formatPrice(course.price, course.currency)}
+                    </p>
+                  )}
+                </div>
                 <PurchaseCTA />
                 {error && (
                   <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
@@ -200,9 +306,10 @@ export function CourseDetailPage() {
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="lg:max-w-3xl">
           <span className="eyebrow">Curriculum</span>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight">What you'll learn</h2>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight">Course content</h2>
           <p className="mt-2 font-grotesk text-muted-foreground">
             {sections.length} sections · {lessons.length} lessons
+            {totalDuration > 0 && <> · {formatDuration(totalDuration)} total</>}
           </p>
 
           <div className="mt-7 space-y-5">

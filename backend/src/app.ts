@@ -1,6 +1,8 @@
 import express from 'express';
 import type { Server } from 'http';
 import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import connectDB from './db/connection';
 import { sequelize } from './db/sequelize';
@@ -8,10 +10,13 @@ import { redis } from './db/redis';
 import router from './routes';
 import { errorHandler, notFoundHandler } from './middleware/error-middleware';
 
-/** '*' stays a wildcard; a comma list becomes an explicit allowlist. */
-const corsOrigin: string | string[] =
+// Auth tokens live in cookies, so CORS must allow credentials. A wildcard origin
+// is illegal together with credentials, so '*' is turned into "reflect the
+// request origin" (fine for the challenge; set CORS_ORIGIN to an explicit
+// allowlist in production). A comma list becomes an explicit allowlist.
+const corsOrigin: boolean | string[] =
   env.corsOrigin === '*'
-    ? '*'
+    ? true
     : env.corsOrigin.split(',').map((origin) => origin.trim());
 
 async function bootstrap(): Promise<void> {
@@ -25,7 +30,11 @@ async function bootstrap(): Promise<void> {
   // spoof X-Forwarded-For and evade the limiter.
   app.set('trust proxy', 1);
 
-  app.use(cors({ origin: corsOrigin }));
+  // Secure HTTP headers (CSP/HSTS/X-Content-Type-Options/etc.). This is a JSON
+  // API, not an HTML host, so the defaults are appropriate.
+  app.use(helmet());
+  app.use(cors({ origin: corsOrigin, credentials: true }));
+  app.use(cookieParser());
   // The Razorpay webhook signature is verified against the RAW request bytes,
   // so capture them as a Buffer here BEFORE the JSON parser runs. express.raw
   // sets req._body, which makes the later express.json() skip this route. The

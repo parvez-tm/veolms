@@ -12,7 +12,9 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params] = useSearchParams()
-  const from = (location.state as { from?: string } | null)?.from
+  const navState = location.state as { from?: string; reset?: boolean } | null
+  const from = navState?.from
+  const justReset = navState?.reset === true
   // Arrived from a "teach" CTA: a Student logging in here wants to teach, so
   // send them to /teach to upgrade. Existing instructors/admins still go to /admin.
   const asInstructor = params.get('role') === 'instructor'
@@ -67,6 +69,12 @@ export function LoginPage() {
           Pick up right where you left off.
         </p>
 
+        {justReset && (
+          <p className="mt-4 rounded-xl bg-teal/10 px-3.5 py-2.5 text-sm font-medium text-teal-700">
+            Your password was updated. Please log in.
+          </p>
+        )}
+
         <form onSubmit={onSubmit} className="mt-7 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="userDetail">Email or username</Label>
@@ -79,7 +87,15 @@ export function LoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                to="/forgot-password"
+                className="text-sm font-semibold text-primary-strong hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

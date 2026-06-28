@@ -9,9 +9,30 @@ import { Textarea } from '@/components/ui/textarea'
 import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
 import { apiErrorMessage } from '@/lib/api'
 import { useUpdateCourse } from '@/features/admin/manage'
+import { useCategories } from '@/features/courses/api'
 import type { Course } from '@/types'
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const
+
+/** Split a textarea (one item per line) into a trimmed, non-empty string[]. */
+function linesToList(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+}
+
+/** Split comma-separated tags into a trimmed, de-duped string[]. */
+function csvToTags(text: string): string[] {
+  return Array.from(
+    new Set(
+      text
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    )
+  )
+}
 
 export function CourseDetailsModal({
   open,
@@ -23,16 +44,33 @@ export function CourseDetailsModal({
   course: Course
 }) {
   const update = useUpdateCourse(course.id)
+  const { data: categories } = useCategories()
   const [title, setTitle] = useState(course.title)
   const [subtitle, setSubtitle] = useState(course.subtitle ?? '')
   const [description, setDescription] = useState(course.description ?? '')
   const [thumbnail, setThumbnail] = useState<ThumbnailValue>({
     assetId: course.thumbnailAssetId ?? null,
   })
+  const [banner, setBanner] = useState<ThumbnailValue>({
+    assetId: course.bannerAssetId ?? null,
+  })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>(course.level)
+  const [categoryId, setCategoryId] = useState(
+    course.categoryId != null ? String(course.categoryId) : ''
+  )
+  const [language, setLanguage] = useState(course.language ?? 'English')
+  const [tags, setTags] = useState((course.tags ?? []).join(', '))
+  const [outcomes, setOutcomes] = useState((course.learningOutcomes ?? []).join('\n'))
+  const [prerequisites, setPrerequisites] = useState(
+    (course.prerequisites ?? []).join('\n')
+  )
+  const [whoFor, setWhoFor] = useState((course.whoThisIsFor ?? []).join('\n'))
   // Empty = free (₹0); avoids a leading zero the user has to clear before typing.
   const [priceRupees, setPriceRupees] = useState(
     course.price ? String(course.price / 100) : ''
+  )
+  const [discountRupees, setDiscountRupees] = useState(
+    course.discountPrice ? String(course.discountPrice / 100) : ''
   )
   const [error, setError] = useState('')
 
@@ -44,16 +82,38 @@ export function CourseDetailsModal({
       setError('Price must be ₹0 (free) or at least ₹1')
       return
     }
+    const price = Math.round(rupees * 100)
+    // Discount is optional; empty clears it (null).
+    let discountPrice: number | null = null
+    if (discountRupees.trim() !== '') {
+      const dRupees = Number(discountRupees)
+      if (!Number.isFinite(dRupees) || dRupees < 0) {
+        setError('Enter a valid discount price')
+        return
+      }
+      discountPrice = Math.round(dRupees * 100)
+      if (discountPrice >= price) {
+        setError('Discount price must be less than the price')
+        return
+      }
+    }
     try {
-      // Cover is an uploaded image asset (R2); null clears it.
-      const thumb = { thumbnailAssetId: thumbnail.assetId }
+      // Cover/banner are uploaded image assets (R2); null clears them.
       await update.mutateAsync({
         title: title.trim(),
         subtitle: subtitle.trim() || null,
         description: description.trim() || null,
-        ...thumb,
+        thumbnailAssetId: thumbnail.assetId,
+        bannerAssetId: banner.assetId,
         level,
-        price: Math.round(rupees * 100),
+        price,
+        discountPrice,
+        categoryId: categoryId ? Number(categoryId) : null,
+        language: language.trim() || undefined,
+        tags: csvToTags(tags),
+        learningOutcomes: linesToList(outcomes),
+        prerequisites: linesToList(prerequisites),
+        whoThisIsFor: linesToList(whoFor),
       })
       onClose()
     } catch (err) {
@@ -86,11 +146,50 @@ export function CourseDetailsModal({
           />
         </div>
 
-        <ThumbnailField
-          value={thumbnail}
-          onChange={setThumbnail}
-          previewFallback={course.thumbnail}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="cCategory">Category</Label>
+            <Select
+              id="cCategory"
+              value={categoryId}
+              onChange={setCategoryId}
+              placeholder="Choose a category"
+              options={(categories ?? []).map((c) => ({
+                value: String(c.id),
+                label: c.name,
+              }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cLanguage">Language</Label>
+            <Input
+              id="cLanguage"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="English"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Cover image</Label>
+          <ThumbnailField
+            value={thumbnail}
+            onChange={setThumbnail}
+            previewFallback={course.thumbnail}
+            hideLabel
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Banner image</Label>
+          <ThumbnailField
+            value={banner}
+            onChange={setBanner}
+            previewFallback={course.banner}
+            hideLabel
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -124,6 +223,74 @@ export function CourseDetailsModal({
               Leave empty or 0 for a free course.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="cDiscount">Discount price</Label>
+            <div className="relative">
+              <IndianRupee className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="cDiscount"
+                type="number"
+                min={0}
+                step="1"
+                inputMode="numeric"
+                placeholder="0"
+                value={discountRupees}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(e) => setDiscountRupees(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">
+              Optional. Must be less than the price.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cTags">Tags</Label>
+          <Input
+            id="cTags"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="javascript, web, beginners"
+          />
+          <p className="text-xs font-medium text-muted-foreground">Comma-separated.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cOutcomes">Learning outcomes</Label>
+          <Textarea
+            id="cOutcomes"
+            value={outcomes}
+            onChange={(e) => setOutcomes(e.target.value)}
+            placeholder={'Build a full web app\nDeploy to production'}
+            rows={4}
+          />
+          <p className="text-xs font-medium text-muted-foreground">One item per line.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cPrereqs">Prerequisites</Label>
+          <Textarea
+            id="cPrereqs"
+            value={prerequisites}
+            onChange={(e) => setPrerequisites(e.target.value)}
+            placeholder={'Basic HTML & CSS\nA code editor'}
+            rows={4}
+          />
+          <p className="text-xs font-medium text-muted-foreground">One item per line.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cWhoFor">Who this is for</Label>
+          <Textarea
+            id="cWhoFor"
+            value={whoFor}
+            onChange={(e) => setWhoFor(e.target.value)}
+            placeholder={'Aspiring web developers\nDesigners learning to code'}
+            rows={4}
+          />
+          <p className="text-xs font-medium text-muted-foreground">One item per line.</p>
         </div>
 
         {error && (

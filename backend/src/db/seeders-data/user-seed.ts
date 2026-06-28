@@ -38,6 +38,7 @@ export async function seedAdminUser(
       email: env.seed.adminEmail,
       password: env.seed.adminPassword,
       roleId: adminRole.id,
+      isVerified: true,
     },
     { transaction }
   );

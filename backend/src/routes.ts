@@ -11,6 +11,8 @@ import enrollmentRouter from './routes/lms/enrollment/enrollment-api';
 import progressRouter from './routes/lms/progress/progress-api';
 import mediaRouter from './routes/lms/media/media-api';
 import paymentRouter from './routes/lms/payment/payment-api';
+import statsRouter from './routes/lms/stats/stats-api';
+import contactRouter from './routes/lms/contact/contact-api';
 
 const router = Router();
 
@@ -29,6 +31,8 @@ router.use('/enrollment', enrollmentRouter);
 router.use('/progress', progressRouter);
 router.use('/media', mediaRouter);
 router.use('/payment', paymentRouter);
+router.use('/stats', statsRouter);
+router.use('/contact', contactRouter);
 
 router.get('/', (_req, res) => {
   res.send('VeoLMS API');

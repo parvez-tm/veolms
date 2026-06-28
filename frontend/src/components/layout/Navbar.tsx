@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, LogOut } from 'lucide-react'
+import { LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { userDisplayName } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -10,9 +11,11 @@ export function Navbar() {
   const navigate = useNavigate()
   const canManage = role === 'Admin' || role === 'Instructor'
   const name = userDisplayName(user)
+  const [open, setOpen] = useState(false)
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    setOpen(false)
+    await logout()
     navigate('/')
   }
 
@@ -21,6 +24,38 @@ export function Navbar() {
       'text-sm font-medium transition-colors hover:text-foreground',
       isActive ? 'text-foreground' : 'text-muted-foreground'
     )
+
+  const links = (
+    <>
+      <NavLink to="/" end className={linkClass} onClick={() => setOpen(false)}>
+        Home
+      </NavLink>
+      <NavLink to="/courses" className={linkClass} onClick={() => setOpen(false)}>
+        Courses
+      </NavLink>
+      <NavLink to="/pricing" className={linkClass} onClick={() => setOpen(false)}>
+        Pricing
+      </NavLink>
+      <NavLink to="/about" className={linkClass} onClick={() => setOpen(false)}>
+        About
+      </NavLink>
+      {isAuthenticated && (
+        <NavLink to="/my-learning" className={linkClass} onClick={() => setOpen(false)}>
+          My Learning
+        </NavLink>
+      )}
+      {!canManage && (
+        <NavLink to="/teach" className={linkClass} onClick={() => setOpen(false)}>
+          Teach
+        </NavLink>
+      )}
+      {canManage && (
+        <NavLink to="/admin" className={linkClass} onClick={() => setOpen(false)}>
+          {isAdmin ? 'Admin' : 'Instructor'}
+        </NavLink>
+      )}
+    </>
+  )
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/85 backdrop-blur">
@@ -32,46 +67,13 @@ export function Navbar() {
           <span className="text-lg tracking-tight">VeoLMS</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          <NavLink to="/" end className={linkClass}>
-            Home
-          </NavLink>
-          <NavLink to="/courses" className={linkClass}>
-            Courses
-          </NavLink>
-          <NavLink to="/pricing" className={linkClass}>
-            Pricing
-          </NavLink>
-          <NavLink to="/about" className={linkClass}>
-            About
-          </NavLink>
-          {isAuthenticated && (
-            <NavLink to="/my-learning" className={linkClass}>
-              My Learning
-            </NavLink>
-          )}
-          {!canManage && (
-            <NavLink to="/teach" className={linkClass}>
-              Teach
-            </NavLink>
-          )}
-          {canManage && (
-            <NavLink to="/admin" className={linkClass}>
-              {isAdmin ? 'Admin' : 'Instructor'}
-            </NavLink>
-          )}
-        </nav>
+        <nav className="hidden items-center gap-6 md:flex">{links}</nav>
 
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
               {canManage && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="hidden sm:inline-flex"
-                >
+                <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
                   <Link to="/admin">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
@@ -79,27 +81,65 @@ export function Navbar() {
                 </Button>
               )}
               {name && (
-                <span className="hidden text-sm text-muted-foreground sm:inline">
-                  {name}
-                </span>
+                <span className="hidden text-sm text-muted-foreground sm:inline">{name}</span>
               )}
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button variant="outline" size="sm" onClick={handleLogout} className="hidden md:inline-flex">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="hidden md:inline-flex">
                 <Link to="/login">Log in</Link>
               </Button>
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className="hidden sm:inline-flex">
                 <Link to="/signup">Sign up</Link>
               </Button>
             </>
           )}
+
+          {/* Mobile menu toggle */}
+          <button
+            type="button"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="grid h-9 w-9 place-items-center rounded-xl border-2 border-ink md:hidden"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      {open && (
+        <div className="border-t border-border bg-background md:hidden">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 text-base sm:px-6">
+            {links}
+            <div className="flex flex-col gap-2 border-t border-dashed border-border pt-4">
+              {isAuthenticated ? (
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" /> Logout
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/login" onClick={() => setOpen(false)}>
+                      Log in
+                    </Link>
+                  </Button>
+                  <Button size="sm" asChild>
+                    <Link to="/signup" onClick={() => setOpen(false)}>
+                      Sign up
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

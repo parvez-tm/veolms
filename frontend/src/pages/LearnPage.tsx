@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CheckCircle2, Circle, Video, FileText, ArrowLeft } from 'lucide-react'
 import { useCourseDetail } from '@/features/courses/detail'
@@ -26,6 +26,23 @@ export function LearnPage() {
     [course]
   )
   const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  // Resume where the student left off: once curriculum + progress have loaded,
+  // pick the initial lesson exactly once (the first not-completed lesson in order,
+  // else the last lesson, else the first). Guarded so it never overrides later
+  // manual sidebar clicks or Next-button navigation.
+  const didResume = useRef(false)
+  useEffect(() => {
+    if (didResume.current || lessons.length === 0 || !progressQuery.data) return
+    didResume.current = true
+    const progressLessons = progressQuery.data.lessons ?? []
+    const completed = new Set(
+      progressLessons.filter((l) => l.completed).map((l) => l.lessonId)
+    )
+    const firstUnfinished = lessons.find((l) => !completed.has(l.id))
+    setSelectedId(firstUnfinished?.id ?? lessons[lessons.length - 1]?.id ?? lessons[0].id)
+  }, [lessons, progressQuery.data])
+
   const current =
     lessons.find((l) => l.id === selectedId) ?? lessons[0] ?? null
 

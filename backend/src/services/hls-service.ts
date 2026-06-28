@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MediaAsset } from '../routes/lms/media/media-asset-model';
+import { Lesson } from '../routes/lms/lesson/lesson-model';
 import {
   isStorageConfigured,
   getObjectBuffer,
@@ -57,22 +58,47 @@ function run(cmd: string, args: string[], cwd: string): Promise<void> {
   });
 }
 
-/** Probe the source video height (0 if unknown). */
-function probeHeight(file: string, cwd: string): Promise<number> {
+interface VideoMeta {
+  width: number;
+  height: number;
+  durationSec: number;
+}
+
+/** Probe the source video width/height/duration (0s if unknown). */
+function probeVideoMeta(file: string, cwd: string): Promise<VideoMeta> {
   return new Promise((resolve) => {
     const p = spawn(
       'ffprobe',
-      ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=height', '-of', 'csv=p=0', file],
+      [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height:format=duration',
+        '-of', 'json',
+        file,
+      ],
       { cwd }
     );
     let out = '';
     p.stdout?.on('data', (d) => {
       out += d.toString();
     });
-    p.on('error', () => resolve(0));
+    p.on('error', () => resolve({ width: 0, height: 0, durationSec: 0 }));
     p.on('close', () => {
-      const h = parseInt(out.trim(), 10);
-      resolve(Number.isFinite(h) ? h : 0);
+      try {
+        const parsed = JSON.parse(out) as {
+          streams?: Array<{ width?: number; height?: number }>;
+          format?: { duration?: string };
+        };
+        const s = parsed.streams?.[0] ?? {};
+        const dur = Number(parsed.format?.duration);
+        resolve({
+          width: Number.isFinite(s.width) ? Number(s.width) : 0,
+          height: Number.isFinite(s.height) ? Number(s.height) : 0,
+          durationSec: Number.isFinite(dur) ? Math.round(dur) : 0,
+        });
+      } catch {
+        resolve({ width: 0, height: 0, durationSec: 0 });
+      }
     });
   });
 }
@@ -143,8 +169,24 @@ export async function transcodeToHls(assetId: number): Promise<void> {
       `veo-key\nenc.key\n${randomBytes(16).toString('hex')}\n`
     );
 
-    // 3. pick renditions ≤ source height, then encode encrypted ABR HLS
-    const height = (await probeHeight('input', dir)) || 720;
+    // 3. probe source metadata (width/height/duration), persist it, and backfill
+    //    the duration onto any lessons using this asset that don't have one yet.
+    const meta = await probeVideoMeta('input', dir);
+    if (meta.width || meta.height || meta.durationSec) {
+      asset.width = meta.width || null;
+      asset.height = meta.height || null;
+      asset.durationSec = meta.durationSec || null;
+      await asset.save();
+      if (meta.durationSec > 0) {
+        await Lesson.update(
+          { videoDurationSec: meta.durationSec },
+          { where: { videoAssetId: asset.id, videoDurationSec: null } }
+        ).catch(() => undefined);
+      }
+    }
+
+    // 4. pick renditions ≤ source height, then encode encrypted ABR HLS
+    const height = meta.height || 720;
     let rungs = LADDER.filter((r) => r.h <= height);
     if (rungs.length === 0) rungs = [LADDER[0]];
     await run('ffmpeg', buildArgs('input', rungs), dir);

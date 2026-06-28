@@ -29,6 +29,13 @@ export class User extends Model<
   declare address: CreationOptional<string | null>;
   /** Profile image stored in R2 (FK to media_assets); null = no avatar. */
   declare avatarAssetId: CreationOptional<ForeignKey<number> | null>;
+  /** Email-verification state (non-blocking: an unverified user can still log in). */
+  declare isVerified: CreationOptional<boolean>;
+  declare emailVerifyTokenHash: CreationOptional<string | null>;
+  declare emailVerifyExpires: CreationOptional<Date | null>;
+  /** Password-reset token (sha256 hash) + expiry. */
+  declare passwordResetTokenHash: CreationOptional<string | null>;
+  declare passwordResetExpires: CreationOptional<Date | null>;
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;
 
@@ -63,6 +70,11 @@ User.init(
     phone: { type: DataTypes.STRING, allowNull: true },
     address: { type: DataTypes.STRING, allowNull: true },
     avatarAssetId: { type: DataTypes.BIGINT, allowNull: true },
+    isVerified: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    emailVerifyTokenHash: { type: DataTypes.STRING, allowNull: true },
+    emailVerifyExpires: { type: DataTypes.DATE, allowNull: true },
+    passwordResetTokenHash: { type: DataTypes.STRING, allowNull: true },
+    passwordResetExpires: { type: DataTypes.DATE, allowNull: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
   },
@@ -71,9 +83,18 @@ User.init(
     modelName: 'User',
     tableName: 'users',
     timestamps: true,
-    // Never return the password hash unless explicitly requested via .unscoped().
+    // Never return the password hash or auth-token secrets unless explicitly
+    // requested via .unscoped().
     defaultScope: {
-      attributes: { exclude: ['password'] },
+      attributes: {
+        exclude: [
+          'password',
+          'emailVerifyTokenHash',
+          'emailVerifyExpires',
+          'passwordResetTokenHash',
+          'passwordResetExpires',
+        ],
+      },
     },
     hooks: {
       // Hash the password only when it actually changed (create or update).

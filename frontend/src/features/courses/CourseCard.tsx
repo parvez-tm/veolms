@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { PlayCircle } from 'lucide-react'
+import { PlayCircle, Users, BookOpen } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import type { Course } from '@/types'
 
 // Varied gradient covers so a thumbnail-less catalog stays colorful, not monotone.
@@ -21,6 +22,10 @@ function coverFor(seed: string) {
   return COVERS[h % COVERS.length]
 }
 
+function compact(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n)
+}
+
 export function CourseCard({ course }: { course: Course }) {
   const instructor = course.instructor
     ? `${course.instructor.firstName ?? ''} ${course.instructor.lastName ?? ''}`.trim() ||
@@ -29,68 +34,102 @@ export function CourseCard({ course }: { course: Course }) {
     : 'VeoLMS'
 
   const isFree = !course.price || course.price <= 0
+  const hasDiscount =
+    !isFree && course.discountPrice != null && course.discountPrice < course.price
   const cover = coverFor(String(course.id ?? course.title))
   const initial = course.title?.trim().charAt(0).toUpperCase() || 'V'
+  const students = course.studentCount ?? 0
+  const lessons = course.lessonCount ?? 0
+  const blurb = course.subtitle || course.description || ''
+  const to = `/courses/${course.id}`
 
   return (
-    <Link to={`/courses/${course.id}`} className="group block">
-      <article className="pop pop-hover flex h-full flex-col overflow-hidden">
-        <div className="relative aspect-video w-full overflow-hidden border-b-2 border-ink">
-          {course.thumbnail ? (
-            <img
-              src={course.thumbnail}
-              alt={course.title}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
+    <article className="pop pop-hover flex h-full flex-col overflow-hidden">
+      <Link to={to} className="group relative block aspect-video w-full overflow-hidden border-b-2 border-ink">
+        {course.thumbnail ? (
+          <img
+            src={course.thumbnail}
+            alt={course.title}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className={'relative flex h-full w-full items-center justify-center bg-gradient-to-br ' + cover}>
             <div
-              className={
-                'relative flex h-full w-full items-center justify-center bg-gradient-to-br ' +
-                cover
-              }
-            >
-              {/* dotted texture overlay */}
-              <div
-                className="absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.55)_1.5px,transparent_1.6px)] [background-size:18px_18px]"
-                aria-hidden
-              />
-              <span className="font-grotesk text-6xl font-bold text-white/90 drop-shadow-sm">
-                {initial}
-              </span>
-            </div>
-          )}
-          <div className="absolute inset-0 flex items-center justify-center bg-ink/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <PlayCircle className="h-12 w-12 text-white drop-shadow" />
+              className="absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.55)_1.5px,transparent_1.6px)] [background-size:18px_18px]"
+              aria-hidden
+            />
+            <span className="font-grotesk text-6xl font-bold text-white/90 drop-shadow-sm">
+              {initial}
+            </span>
           </div>
-          {course.category && (
-            <span className="tag absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-foreground">
-              {course.category.name}
-            </span>
-          )}
-          {isFree && (
-            <span className="tag absolute right-3 top-3 rounded-full bg-amber px-2.5 py-1 text-xs font-bold text-ink">
-              Free
-            </span>
-          )}
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-ink/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <PlayCircle className="h-12 w-12 text-white drop-shadow" />
         </div>
+        {course.category && (
+          <span className="tag absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-foreground">
+            {course.category.name}
+          </span>
+        )}
+        {isFree ? (
+          <span className="tag absolute right-3 top-3 rounded-full bg-amber px-2.5 py-1 text-xs font-bold text-ink">
+            Free
+          </span>
+        ) : (
+          hasDiscount && (
+            <span className="tag absolute right-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+              Sale
+            </span>
+          )
+        )}
+      </Link>
 
-        <div className="flex flex-1 flex-col gap-2 p-4">
-          <h3 className="line-clamp-2 text-lg font-extrabold leading-snug tracking-tight transition-colors group-hover:text-primary">
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <Link to={to}>
+          <h3 className="line-clamp-2 text-lg font-extrabold leading-snug tracking-tight transition-colors hover:text-primary">
             {course.title}
           </h3>
-          <p className="text-sm font-medium text-muted-foreground">{instructor}</p>
-          <div className="mt-auto flex items-center justify-between border-t-2 border-dashed border-border pt-3">
-            <span className="font-grotesk text-sm font-bold capitalize text-teal">
-              {course.level}
+        </Link>
+        <p className="text-sm font-medium text-muted-foreground">{instructor}</p>
+        {blurb && (
+          <p className="line-clamp-2 text-sm text-muted-foreground">{blurb}</p>
+        )}
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Users className="h-3.5 w-3.5" /> {compact(students)} students
+          </span>
+          {lessons > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" /> {lessons} lessons
             </span>
+          )}
+          <span className="capitalize text-teal">{course.level}</span>
+        </div>
+
+        <div className="mt-auto border-t-2 border-dashed border-border pt-3">
+          <div className="flex items-baseline gap-2">
             <span className="font-grotesk text-base font-extrabold text-primary-strong">
-              {formatPrice(course.price, course.currency)}
+              {isFree ? 'Free' : formatPrice(hasDiscount ? course.discountPrice! : course.price, course.currency)}
             </span>
+            {hasDiscount && (
+              <span className="text-sm font-semibold text-muted-foreground line-through">
+                {formatPrice(course.price, course.currency)}
+              </span>
+            )}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild className="flex-1">
+              <Link to={to}>Preview</Link>
+            </Button>
+            <Button size="sm" asChild className="flex-1">
+              <Link to={to}>{isFree ? 'Enroll' : 'Buy now'}</Link>
+            </Button>
           </div>
         </div>
-      </article>
-    </Link>
+      </div>
+    </article>
   )
 }
 

@@ -28,10 +28,22 @@ export const webhookLimiter = rateLimit({
   message: { message: 'Too many requests.' },
 });
 
-/** Auth endpoints (login): slow down credential brute-forcing. */
+/** Auth endpoints (login/register/reset): slow down credential brute-forcing. */
 export const authLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60_000, // 15 minutes
   limit: 50,
   message: { message: 'Too many attempts. Please try again later.' },
+});
+
+/**
+ * Silent session refresh runs on a timer + on every 401, so it needs a much
+ * higher ceiling than login (and several users can share one NAT/proxy IP). It
+ * carries no credentials to brute-force, so a generous limit is safe.
+ */
+export const refreshLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60_000,
+  limit: 600,
+  message: { message: 'Too many requests. Please try again shortly.' },
 });

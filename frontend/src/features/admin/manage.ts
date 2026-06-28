@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import type { Course, Lesson, Section } from '@/types'
+import type { Course, Lesson, LessonResource, Section } from '@/types'
 
 /** Full course tree (sections + lessons), for the manage view. */
 export function useCourse(id: string | number | undefined) {
@@ -48,8 +48,16 @@ export interface CourseDetailsInput {
   subtitle?: string | null
   description?: string | null
   thumbnailAssetId?: number | null
+  bannerAssetId?: number | null
   level?: 'beginner' | 'intermediate' | 'advanced'
   price?: number
+  discountPrice?: number | null // paise, must be < price
+  categoryId?: number | null
+  language?: string
+  tags?: string[]
+  learningOutcomes?: string[]
+  prerequisites?: string[]
+  whoThisIsFor?: string[]
 }
 
 export function useUpdateCourse(courseId: string | number) {
@@ -116,9 +124,11 @@ export interface LessonInput {
   type: 'video' | 'text'
   isPreview?: boolean
   position?: number
+  description?: string | null
   content?: string | null
   videoAssetId?: number | null
   videoDurationSec?: number | null
+  resources?: LessonResource[]
 }
 
 export function useAddLesson(courseId: string | number) {
