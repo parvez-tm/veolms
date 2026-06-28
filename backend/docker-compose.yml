@@ -5,7 +5,7 @@ services:
     build: .
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 5005
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
@@ -29,5 +29,5 @@ services:
 
       SEED_ON_START: ${SEED_ON_START:-true}
     ports:
-      - "3000:3000"
+      - "5005:5005"
     restart: unless-stopped

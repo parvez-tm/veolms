@@ -49,7 +49,7 @@ razorpay.configured = !!(razorpay.keyId && razorpay.keySecret);
 export const env = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
-  port: Number(optional('PORT', '3000')),
+  port: Number(optional('PORT', '5005')),
   corsOrigin: optional('CORS_ORIGIN', '*'),
 
   jwt: {
