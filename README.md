@@ -11,7 +11,7 @@ This repository was built as a hiring challenge. It tries to make production dec
 ## What it does
 
 - **Public marketplace.** A homepage with hero, category browse, featured and most-popular sections, testimonials, and FAQ. A searchable, filterable catalog. Public course detail pages (no login) with curriculum, instructor, pricing, and free preview lessons that actually play for anonymous visitors.
-- **Auth.** Register, log in, log out, forgot/reset password, email verification (non-blocking), and a self-serve Student to Instructor upgrade. Auth is a stateless JWT bearer token: login returns the token in the response body, the SPA stores it in `localStorage` and sends it as `Authorization: Bearer <token>`, and logout drops the stored token client-side.
+- **Auth.** Register, log in, log out, forgot/reset password, and a self-serve Student to Instructor upgrade. Auth is a stateless JWT bearer token: login returns the token in the response body, the SPA stores it in `localStorage` and sends it as `Authorization: Bearer <token>`, and logout drops the stored token client-side.
 - **Authoring (Instructor/Admin).** Full course CRUD, publish/unpublish, section and lesson management with reorder, image uploads (thumbnail + banner), pricing with optional discount, and direct-to-R2 video uploads that transcode to encrypted adaptive HLS.
 - **Learning (Student).** Enroll (free directly, paid via Razorpay), My Courses with progress, Continue Learning that resumes the first incomplete lesson, recently-watched history, and a custom video player with resume, speed, PiP, quality selection, and keyboard shortcuts.
 - **Admin dashboard.** Overview stats (courses, students, enrollments, revenue, paying/active/registered users) and a sales view.
@@ -20,7 +20,7 @@ This repository was built as a hiring challenge. It tries to make production dec
 
 | Area | What is implemented |
 | --- | --- |
-| Auth | Stateless JWT bearer token (returned in the login body, stored client-side, sent as `Authorization: Bearer`), bcrypt hashing, forgot/reset (1h token), email verification, Student to Instructor upgrade |
+| Auth | Stateless JWT bearer token (returned in the login body, stored client-side, sent as `Authorization: Bearer`), bcrypt hashing, forgot/reset (1h token), Student to Instructor upgrade |
 | Catalog & search | Free-text search across course title/subtitle/description, category name, and instructor name; category + level filters; sort by newest/popular/price; live student count, lesson count, and total duration |
 | Course detail (public) | Banner + thumbnail, instructor, level/language/duration, learning outcomes / prerequisites / who-it-is-for, tags, discounted pricing, curriculum tree, playable free preview lessons |
 | Video | Direct-to-R2 presigned upload, ffmpeg transcode to AES-128 encrypted ABR HLS (360/480/720/1080 capped at source), ticket-gated playback, raw MP4 deleted after transcode |

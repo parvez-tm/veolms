@@ -19,8 +19,7 @@ function getTransporter(): Transporter | null {
 /**
  * Send an email. When SMTP isn't configured (the default for local/dev), the
  * message (including any action link) is logged to the console so the
- * forgot-password / verification flows remain fully testable without an email
- * account.
+ * forgot-password flow remains fully testable without an email account.
  */
 async function deliver(
   to: string,
@@ -52,19 +51,6 @@ function layout(title: string, body: string, cta: { label: string; url: string }
       </p>
       <p style="color:#888;font-size:12px">If the button doesn't work, paste this link into your browser:<br>${cta.url}</p>
     </div></body></html>`;
-}
-
-export async function sendVerificationEmail(to: string, link: string): Promise<void> {
-  await deliver(
-    to,
-    'Verify your VeoLMS email',
-    layout(
-      'Confirm your email',
-      'Welcome to VeoLMS! Confirm your email address to finish setting up your account.',
-      { label: 'Verify email', url: link }
-    ),
-    `Verify your email: ${link}`
-  );
 }
 
 export async function sendContactMessage(payload: {

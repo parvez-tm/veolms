@@ -113,7 +113,7 @@ Lesson ──< LessonProgress (CASCADE)
 
 | Model | Notable fields | Constraints / rules |
 | --- | --- | --- |
-| `User` | `userName`, `email`, `password` (bcrypt), `roleId`, `isVerified`, reset/verify token hashes | `defaultScope` excludes password + token hashes; unique email + userName; `beforeSave` hashes password only when changed |
+| `User` | `userName`, `email`, `password` (bcrypt), `roleId`, password-reset token hash + expiry | `defaultScope` excludes password + token hashes; unique email + userName; `beforeSave` hashes password only when changed |
 | `Role` / `Menu` / `Permission` | `canCreate/Read/Update/Delete` flags | Permission flags avoid SQL reserved words; Role delete RESTRICTed while users exist |
 | `Category` | `name` | Course `categoryId` SET NULL on delete |
 | `Course` | `title`, `subtitle`, `description`, `level`, `language`, `tags[]`, `learningOutcomes[]`, `prerequisites[]`, `whoThisIsFor[]`, `price`, `discountPrice`, `status` | `price`/`discountPrice` in paise; `status` draft/published gates visibility; indexes on `status`, `instructorId` |

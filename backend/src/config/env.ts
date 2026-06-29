@@ -95,7 +95,7 @@ export const env = {
   /** Razorpay payment gateway (test mode for the challenge). */
   razorpay,
 
-  /** Transactional email (password reset + verification). Falls back to console logging. */
+  /** Transactional email (password reset + contact form). Falls back to console logging. */
   email,
 
   seed: {

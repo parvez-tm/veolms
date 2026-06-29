@@ -1,6 +1,6 @@
 export type RoleName = 'Admin' | 'Instructor' | 'Student'
 
-/** Shape of `data` returned by /user/login, /register, /refresh (the JWT payload). */
+/** Shape of `data` returned by /user/login and /register (the JWT payload). */
 export interface AuthUser {
   id: number
   userName: string
@@ -8,8 +8,6 @@ export interface AuthUser {
   roleId: number
   roleName: RoleName
   lastPermissionUpdate?: string
-  /** Email-verification state (non-blocking). */
-  isVerified?: boolean
   // populated when fetched from /user/me
   firstName?: string
   lastName?: string

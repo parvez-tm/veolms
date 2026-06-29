@@ -9,10 +9,7 @@ import { Permission } from '../permission/permission-model';
 import { Menu } from '../menu/menu-model';
 import { env } from '../../../config/env';
 import { sequelize } from '../../../db/sequelize';
-import {
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-} from '../../../services/email-service';
+import { sendPasswordResetEmail } from '../../../services/email-service';
 import {
   calculatePaginationInfo,
   parseRequestParams,
@@ -142,7 +139,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   res.status(200).json({
     message: 'Login successful',
     token: signToken(payload),
-    data: { ...payload, isVerified: user.isVerified },
+    data: payload,
     permissions,
   });
 };
@@ -180,9 +177,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError(500, 'Student role is not configured');
   }
 
-  // Issue an email-verification token (verification is non-blocking: the account
-  // is usable immediately, and a banner nudges the user to verify).
-  const verifyRaw = crypto.randomBytes(32).toString('hex');
   const created = await User.create({
     userName,
     firstName,
@@ -190,19 +184,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     email,
     password, // hashed by the beforeSave hook
     roleId: studentRole.id,
-    emailVerifyTokenHash: sha256(verifyRaw),
-    emailVerifyExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
-
-  // Best-effort: a mail failure must not break signup.
-  try {
-    await sendVerificationEmail(
-      created.email,
-      `${env.appUrl}/verify-email?token=${verifyRaw}`
-    );
-  } catch (err) {
-    console.error('Verification email failed:', (err as Error).message);
-  }
 
   const payload = buildPayload(created, studentRole);
   const permissions = await buildPermissionMap(studentRole.id);
@@ -210,7 +192,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   res.status(201).json({
     message: 'Registration successful',
     token: signToken(payload),
-    data: { ...payload, isVerified: false },
+    data: payload,
     permissions,
   });
 };
@@ -256,7 +238,7 @@ export const becomeInstructor = async (
   res.status(200).json({
     message: 'You are now an instructor',
     token: signToken(payload),
-    data: { ...payload, isVerified: user.isVerified },
+    data: payload,
     permissions,
   });
 };
@@ -323,50 +305,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   user.passwordResetExpires = null;
   await user.save();
   res.status(200).json({ message: 'Password updated. Please log in.' });
-};
-
-/** Verify an email address from the emailed token. */
-export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
-  const { token } = req.body ?? {};
-  if (typeof token !== 'string' || token.trim() === '') {
-    throw new ApiError(400, 'Verification token is required');
-  }
-  const user = await User.unscoped().findOne({
-    where: {
-      emailVerifyTokenHash: sha256(token),
-      emailVerifyExpires: { [Op.gt]: new Date() },
-    },
-  });
-  if (!user) {
-    throw new ApiError(400, 'This verification link is invalid or has expired');
-  }
-  user.isVerified = true;
-  user.emailVerifyTokenHash = null;
-  user.emailVerifyExpires = null;
-  await user.save();
-  res.status(200).json({ message: 'Email verified' });
-};
-
-/** Re-send the verification email to the current user. */
-export const resendVerification = async (req: Request, res: Response): Promise<void> => {
-  const user = await User.unscoped().findByPk(req.user!.id);
-  if (!user) {
-    throw new ApiError(404, 'User not found');
-  }
-  if (user.isVerified) {
-    res.status(200).json({ message: 'Your email is already verified' });
-    return;
-  }
-  const raw = crypto.randomBytes(32).toString('hex');
-  user.emailVerifyTokenHash = sha256(raw);
-  user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await user.save();
-  try {
-    await sendVerificationEmail(user.email, `${env.appUrl}/verify-email?token=${raw}`);
-  } catch (err) {
-    console.error('Verification email failed:', (err as Error).message);
-  }
-  res.status(200).json({ message: 'Verification email sent' });
 };
 
 /** Build (or read from Redis) the read-enabled permission map for a role. */

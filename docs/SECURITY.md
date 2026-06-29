@@ -13,10 +13,9 @@ This is a checklist-style map of every protection in VeoLMS to the code that imp
 | JWT bearer token | `signToken` signs the JWT with `JWT_SECRET` and `expiresIn = JWT_EXPIRES_IN` (default `7d`). `login`/`register`/`become-instructor` return it in the response body; the SPA stores it in `localStorage` and sends it as `Authorization: Bearer <token>`. Stateless: there is no server-side session, so logout is client-side (drop the token) |
 | Token verification | `auth_middleware` requires an `Authorization: Bearer` header and `jwt.verify`s it (missing/malformed or invalid/expired is 401) |
 | Forgot/reset password | 1-hour token, stored as a sha256 hash with an expiry on `User` (`passwordResetTokenHash` / `passwordResetExpires`). Token-in-body flow, independent of the auth transport |
-| Email verification | Token-based, **non-blocking**: an unverified user can still log in and use the app (`isVerified` flag) |
 | Token freshness | `auth_middleware` rejects tokens issued before the role's last permission change (403, "Permissions updated. Please login again"), checked against the Redis-cached role permission version (falls back to Postgres) |
 
-The reset/verify tokens are hash-at-rest, so a DB leak cannot replay them against the API.
+The reset token is hash-at-rest, so a DB leak cannot replay it against the API.
 
 ---
 

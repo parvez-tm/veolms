@@ -72,7 +72,7 @@ There is also a hard payment-bypass guard: `POST /enrollment/enroll` refuses pai
 - **Redis** is treated strictly as a cache. The permission-version lookup that runs on every authenticated request wraps its read so a Redis outage **falls back to Postgres**. Critically, the rate limiter is deliberately **not** Redis-backed, precisely so a Redis outage cannot 500 every limited route.
 - **R2** is optional to boot. If `r2.configured` is false, media and video-playback endpoints return **503** and only text lessons work; there is no external-URL fallback by design.
 - **Razorpay** is optional. If unconfigured, paid purchases return **503** while free courses still enroll directly.
-- **Email** falls back to logging verification/reset links to the console when SMTP is unset, so the auth flows are fully testable in dev.
+- **Email** falls back to logging password-reset links to the console when SMTP is unset, so the flow is fully testable in dev.
 
 **The trade-off.** Every feature that touches an optional service needs an "is this configured?" branch and a sensible degraded response, which is more code than assuming the service is always there. The payoff is a system that boots from a clean checkout, is honest about what is and is not available, and treats its cache as a cache rather than a single point of failure.
 

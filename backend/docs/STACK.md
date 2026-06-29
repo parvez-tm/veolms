@@ -27,7 +27,7 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 | ffmpeg | system (alpine pkg) | encrypted-HLS transcode of uploaded video; installed in the Dockerfile, invoked via `child_process` |
 | cors | ^2.8.6 | CORS allowlist for the JSON API (`*` becomes "reflect origin") |
 | helmet | ^8.2.0 | secure HTTP headers (CSP/HSTS/etc.) on the JSON API |
-| nodemailer | ^9.0.1 | password-reset + verification email; SMTP when configured, else console fallback |
+| nodemailer | ^9.0.1 | password-reset + contact email; SMTP when configured, else console fallback |
 | vitest | ^4.1.9 (dev) | unit tests for pure logic (`npm test`) |
 
 `npm outdated` to check; `npm view <pkg> dist-tags` to confirm stable vs alpha/beta before bumping a major.
@@ -70,8 +70,8 @@ _Last updated: 2026-06 (Node 24 LTS, TypeScript 6)._
 - The signed JWT is the **bearer access token**: `login`/`register`/`become-instructor` return it in the response body (`{ message, token, data, permissions }`), the SPA stores it in `localStorage`, and sends it as `Authorization: Bearer <token>`. It is stateless (no server-side session to revoke; logout is client-side, the token stays valid until it expires). JWTs also back the short-lived HLS playback tickets (`services/hls-ticket.ts`).
 
 ### nodemailer 9 (transactional email)
-- `createTransport({ host, port, secure, auth })` from `SMTP_*`. When SMTP is unset, `email-service.ts` logs the message + action link to the console so forgot-password / verify-email are testable with no mail account.
-- Used for: email verification (non-blocking; the account works before verifying), password reset (1h token), and contact-form forwarding.
+- `createTransport({ host, port, secure, auth })` from `SMTP_*`. When SMTP is unset, `email-service.ts` logs the message + action link to the console so forgot-password is testable with no mail account.
+- Used for: password reset (1h token) and contact-form forwarding.
 
 ### vitest 4 (tests)
 - `npm test` (`vitest run`) covers the pure, security-critical logic without Postgres/Redis/R2: payment + webhook HMAC verification, pricing rules, id/int validation, search-filter whitelisting, HLS tickets. `test/setup.ts` sets env before `config/env.ts` loads. Integration tests that need a live DB are out of scope (they'd need a throwaway Postgres).

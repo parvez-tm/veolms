@@ -29,8 +29,6 @@ interface AuthContextValue {
   login: (userDetail: string, password: string) => Promise<AuthUser>
   register: (payload: RegisterPayload) => Promise<AuthUser>
   becomeInstructor: () => Promise<AuthUser>
-  /** Pull the latest profile (e.g. after verifying email) into local state. */
-  refreshProfile: () => Promise<void>
   logout: () => void
 }
 
@@ -90,21 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return persist(data)
   }, [persist])
 
-  // Merge the latest server profile into the cached user (used after verifying
-  // an email so the verify banner clears without a re-login).
-  const refreshProfile = useCallback(async () => {
-    try {
-      const { data } = await api.get<{ data: AuthUser }>('/user/me')
-      setUser((prev) => {
-        const merged = { ...(prev ?? {}), ...data.data } as AuthUser
-        localStorage.setItem(USER_KEY, JSON.stringify(merged))
-        return merged
-      })
-    } catch {
-      /* ignore: a failed /me leaves the cached user as-is */
-    }
-  }, [])
-
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
@@ -133,10 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       becomeInstructor,
-      refreshProfile,
       logout,
     }),
-    [user, login, register, becomeInstructor, refreshProfile, logout]
+    [user, login, register, becomeInstructor, logout]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

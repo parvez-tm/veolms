@@ -16,7 +16,7 @@ All prices are in USD per month unless noted.
 | Object storage | Cloudflare R2 | Video, HLS segments, images; **$0 egress** | Pay-as-you-go |
 | Domain | Any registrar | DNS + the public hostname | Annual, amortized |
 | Payments | Razorpay | Checkout + payout | Per-transaction, pass-through |
-| Email | SMTP provider (or console in dev) | Verification + reset + contact | Free tier |
+| Email | SMTP provider (or console in dev) | Reset + contact | Free tier |
 
 ---
 

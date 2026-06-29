@@ -16,10 +16,8 @@ import {
   login,
   me,
   register,
-  resendVerification,
   resetPassword,
   updateUser,
-  verifyEmail,
 } from './user-controller';
 
 const router = Router();
@@ -29,11 +27,9 @@ router.post('/register', authLimiter, asyncHandler(register));
 // Logout is handled client-side (the client drops its stored token); there's no
 // server session to revoke with stateless JWTs.
 router.get('/me', auth_middleware, asyncHandler(me));
-// Password reset + email verification (public token-based, rate-limited).
+// Password reset (public token-based, rate-limited).
 router.post('/forgot-password', authLimiter, asyncHandler(forgotPassword));
 router.post('/reset-password', authLimiter, asyncHandler(resetPassword));
-router.post('/verify-email', authLimiter, asyncHandler(verifyEmail));
-router.post('/resend-verification', auth_middleware, asyncHandler(resendVerification));
 router.post('/become-instructor', auth_middleware, asyncHandler(becomeInstructor));
 // Listing all users (with emails) is Admin-only. getUserById/getAvatar are
 // self-or-admin (enforced in the controller) so a user can read their own profile.
