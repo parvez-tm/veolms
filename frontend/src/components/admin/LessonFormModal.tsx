@@ -260,8 +260,14 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
         )}
 
         {/* Resources */}
-        <div className="space-y-2">
-          <Label>Resources</Label>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label>Resources</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addResource}>
+              <Plus className="h-4 w-4" />
+              Add resource
+            </Button>
+          </div>
           {resources.length > 0 && (
             <div className="space-y-2">
               {resources.map((r, i) => (
@@ -292,10 +298,6 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
               ))}
             </div>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={addResource}>
-            <Plus className="h-4 w-4" />
-            Add resource
-          </Button>
         </div>
 
         <label className="flex items-center gap-2 text-sm">
