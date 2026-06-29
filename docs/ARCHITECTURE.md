@@ -10,21 +10,21 @@ VeoLMS is a two-tier system: a React SPA talking to a stateless Express API, bac
                          ┌─────────────────────────────────────────────┐
                          │  Browser (React 19 SPA, Vite, Tailwind v4)  │
                          │                                              │
-                         │  axios (withCredentials)  ── cookies         │
+                         │  axios (JWT from localStorage)               │
                          │  React Query (server state)                  │
                          │  hls.js (encrypted HLS playback)             │
                          └───────────────┬──────────────────────────────┘
-                                         │  HTTPS  (cookies: access/refresh/csrf)
-                                         │  X-CSRF-Token header on mutations
+                                         │  HTTPS
+                                         │  Authorization: Bearer <jwt> header
                                          ▼
                          ┌─────────────────────────────────────────────┐
                          │  Express 5 API  (stateless, Dockerized)      │
                          │                                              │
-                         │  helmet → cors(creds) → cookieParser →       │
+                         │  helmet → cors →                             │
                          │  raw-body(/payment/webhook) → json →         │
                          │  /api router                                 │
                          │                                              │
-                         │  auth_middleware  (JWT + CSRF + perm version)│
+                         │  auth_middleware  (Bearer JWT + perm version)│
                          │  requireRole / loadOwnedCourse  (RBAC)       │
                          │  rate limiters (auth / payment / webhook)    │
                          └───┬───────────┬───────────┬──────────┬───────┘
@@ -49,49 +49,33 @@ Redis, R2, and Razorpay are each optional: if a service is unconfigured the rela
 
 ## Request and auth flow
 
-Auth tokens live in cookies, not in `localStorage`, so the access token is never readable by JavaScript (XSS-resistant). There are three cookies:
-
-| Cookie | httpOnly | Contents | Lifetime |
-| --- | --- | --- | --- |
-| `access_token` | yes | Signed JWT (`id`, `roleId`, `lastPermissionUpdate`) | 15 min (`JWT_ACCESS_TTL`) |
-| `refresh_token` | yes | Opaque random 32-byte token; only its sha256 hash is stored in `refresh_tokens` | 30 days (`JWT_REFRESH_TTL_DAYS`) |
-| `csrf_token` | no (readable) | Random 24-byte token, echoed back by the SPA in `X-CSRF-Token` | matches refresh |
+Auth is a stateless JWT **bearer token**. There are no cookies, no refresh tokens, and no CSRF: the SPA holds one token in `localStorage` and attaches it to every request. The signed JWT carries `id`, `roleId`, and `lastPermissionUpdate`, and lives for `JWT_EXPIRES_IN` (default `7d`).
 
 ### Login
 
 ```
-POST /api/user/login
+POST /api/user/login   (same shape for /register and /become-instructor)
   → verify password (bcrypt.compare against User.unscoped())
-  → issueSession(res, payload):
-       set access_token cookie (JWT)
-       create refresh_tokens row (sha256 of raw token), set refresh_token cookie
-       set readable csrf_token cookie
-  → 200 { user, csrf }
+  → signToken(payload)   (JWT, expiresIn = JWT_EXPIRES_IN, default 7d)
+  → 200 { message, token, data, permissions }
+
+The SPA stores `token` in localStorage and sends it on every subsequent
+request as `Authorization: Bearer <token>` (axios request interceptor).
 ```
 
 ### Authenticated request
 
-`auth_middleware` runs on protected routes and does four things in order:
+`auth_middleware` runs on protected routes and does three things in order:
 
 1. If the body is a multipart `data` JSON envelope, parse and DOMPurify-sanitize it.
-2. Read the token: a `Bearer` header (API clients/tests) takes precedence, otherwise the `access_token` cookie.
-3. **CSRF guard:** for a cookie-authenticated request with an unsafe method (anything but GET/HEAD/OPTIONS), require `X-CSRF-Token` to equal the `csrf_token` cookie. Bearer requests are exempt because a browser never auto-attaches a `Bearer` header. An attacker's site can forge a cookie-bearing request but cannot read the cookie to set the matching header, so the double-submit check fails (403).
-4. **Permission freshness:** compare the token's `lastPermissionUpdate` against the role's current permission version (read from Redis, falling back to Postgres). If an admin changed the role's permissions after the token was issued, return 403 ("please login again").
+2. **Read and verify the token:** require an `Authorization: Bearer <token>` header (missing/malformed is 401), then `jwt.verify` it with `JWT_SECRET` (invalid or expired is 401).
+3. **Permission freshness:** compare the token's `lastPermissionUpdate` against the role's current permission version (read from Redis, falling back to Postgres). If an admin changed the role's permissions after the token was issued, return 403 ("Permissions updated. Please login again").
 
-### Silent refresh (what makes short tokens usable)
+CSRF is not applicable: a `Bearer` header is never auto-attached by the browser (unlike a cookie), so a cross-site request cannot ride an authenticated session.
 
-The access token deliberately lives only 15 minutes. The SPA's axios response interceptor turns that into an invisible experience:
+### Logout
 
-```
-any request → 401
-  → single-flight POST /api/user/refresh   (uses refresh_token cookie)
-       consumeRefreshToken: find row by hash, DELETE it (rotation), check expiry
-       issueSession: brand-new access + refresh + csrf
-  → retry the original request once
-  → if refresh fails: clear cached profile, ProtectedRoute redirects to /login
-```
-
-Refresh tokens **rotate**: every refresh deletes the presented row and issues a fresh one, so a stolen-and-replayed refresh token is single-use. A burst of concurrent 401s collapses into exactly one `/refresh` call (single-flight promise).
+Logout is **client-side**: the SPA removes the token from `localStorage`. Because the JWT is stateless there is no server-side session to revoke, so a token stays valid until it expires. The frontend also clears the token and redirects to `/login` on a 401, or on the 403 "Permissions updated. Please login again". This trade-off (bounded lifetime instead of instant revocation) is discussed in [SECURITY.md](SECURITY.md) and [CHALLENGES.md](CHALLENGES.md).
 
 ---
 
@@ -102,7 +86,7 @@ IDs are `BIGSERIAL` integers (not UUIDs), and `pg.defaults.parseInt8 = true` ret
 ### Entities
 
 ```
-Role ──< User ──< RefreshToken
+Role ──< User
   │        │
   │        ├──< Course (instructorId, RESTRICT)
   │        ├──< Enrollment
@@ -131,7 +115,6 @@ Lesson ──< LessonProgress (CASCADE)
 | --- | --- | --- |
 | `User` | `userName`, `email`, `password` (bcrypt), `roleId`, `isVerified`, reset/verify token hashes | `defaultScope` excludes password + token hashes; unique email + userName; `beforeSave` hashes password only when changed |
 | `Role` / `Menu` / `Permission` | `canCreate/Read/Update/Delete` flags | Permission flags avoid SQL reserved words; Role delete RESTRICTed while users exist |
-| `RefreshToken` | `tokenHash` (sha256), `expiresAt` | Only the hash is stored; deleting a user CASCADE-revokes sessions |
 | `Category` | `name` | Course `categoryId` SET NULL on delete |
 | `Course` | `title`, `subtitle`, `description`, `level`, `language`, `tags[]`, `learningOutcomes[]`, `prerequisites[]`, `whoThisIsFor[]`, `price`, `discountPrice`, `status` | `price`/`discountPrice` in paise; `status` draft/published gates visibility; indexes on `status`, `instructorId` |
 | `Section` | `title`, `position` | CASCADE from course; reorderable |

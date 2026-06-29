@@ -1,6 +1,5 @@
 import { Role } from '../routes/control/role/role-model';
 import { User } from '../routes/control/user/user-model';
-import { RefreshToken } from '../routes/control/user/refresh-token-model';
 import { Menu } from '../routes/control/menu/menu-model';
 import { Permission } from '../routes/control/permission/permission-model';
 import { Category } from '../routes/lms/category/category-model';
@@ -21,10 +20,6 @@ export function defineAssociations(): void {
   // A role has many users; a role cannot be deleted while users reference it.
   Role.hasMany(User, { foreignKey: 'roleId', onDelete: 'RESTRICT' });
   User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
-
-  // Refresh tokens (rotating sessions); deleting a user revokes their sessions.
-  User.hasMany(RefreshToken, { foreignKey: 'userId', onDelete: 'CASCADE' });
-  RefreshToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
   // A role has many permissions; deleting a role removes its permissions.
   Role.hasMany(Permission, { foreignKey: 'roleId', onDelete: 'CASCADE' });

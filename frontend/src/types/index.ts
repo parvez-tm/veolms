@@ -16,11 +16,10 @@ export interface AuthUser {
   avatarUrl?: string | null
 }
 
-/** POST /user/login | /register | /refresh response (cookie-based; no token in body). */
-export interface AuthResponse {
+/** POST /user/login | /register | /become-instructor response. */
+export interface LoginResponse {
+  token: string
   data: AuthUser
-  /** Double-submit CSRF token (also set as a readable cookie). */
-  csrfToken?: string
   message?: string
 }
 

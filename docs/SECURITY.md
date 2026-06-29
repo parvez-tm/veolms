@@ -1,6 +1,6 @@
 # Security
 
-This is a checklist-style map of every protection in VeoLMS to the code that implements it, followed by an honest list of residual risks. The theme throughout is defense in depth: cookie-based tokens, an ORM that parameterizes by default, server-derived money, and content that is gated at every hop.
+This is a checklist-style map of every protection in VeoLMS to the code that implements it, followed by an honest list of residual risks. The theme throughout is defense in depth: a stateless JWT bearer token, an ORM that parameterizes by default, server-derived money, and content that is gated at every hop.
 
 ---
 
@@ -10,13 +10,13 @@ This is a checklist-style map of every protection in VeoLMS to the code that imp
 | --- | --- |
 | Password hashing | `bcryptjs` (cost 10) in the `User` `beforeSave` hook (`routes/control/user/user-model.ts`); hashes only when the password actually changed |
 | Password never serialized | `User` `defaultScope` excludes `password` and all token-hash columns; login uses `User.unscoped()` |
-| JWT access token | `signAccessToken` (`services/token-service.ts`); 15-min TTL, carried in an httpOnly cookie |
-| Rotating refresh token | Opaque 32-byte random value; only its **sha256 hash** is stored in `refresh_tokens`. Each refresh deletes the presented row and issues a new one (`consumeRefreshToken`), so a replayed token is single-use |
-| Forgot/reset password | 1-hour token, stored as a sha256 hash with an expiry on `User` (`passwordResetTokenHash` / `passwordResetExpires`) |
+| JWT bearer token | `signToken` signs the JWT with `JWT_SECRET` and `expiresIn = JWT_EXPIRES_IN` (default `7d`). `login`/`register`/`become-instructor` return it in the response body; the SPA stores it in `localStorage` and sends it as `Authorization: Bearer <token>`. Stateless: there is no server-side session, so logout is client-side (drop the token) |
+| Token verification | `auth_middleware` requires an `Authorization: Bearer` header and `jwt.verify`s it (missing/malformed or invalid/expired is 401) |
+| Forgot/reset password | 1-hour token, stored as a sha256 hash with an expiry on `User` (`passwordResetTokenHash` / `passwordResetExpires`). Token-in-body flow, independent of the auth transport |
 | Email verification | Token-based, **non-blocking**: an unverified user can still log in and use the app (`isVerified` flag) |
-| Token freshness | `auth_middleware` rejects tokens issued before the role's last permission change (403, "please login again") |
+| Token freshness | `auth_middleware` rejects tokens issued before the role's last permission change (403, "Permissions updated. Please login again"), checked against the Redis-cached role permission version (falls back to Postgres) |
 
-A DB leak of `refresh_tokens` cannot be replayed against the API because only hashes are stored, and reset/verify tokens are likewise hash-at-rest.
+The reset/verify tokens are hash-at-rest, so a DB leak cannot replay them against the API.
 
 ---
 
@@ -53,27 +53,15 @@ The RBAC control-panel routes (role, permission, menu, and the full user listing
 
 ---
 
-## CSRF
+## CSRF and the bearer-token transport
 
 | Protection | Where it lives |
 | --- | --- |
-| Double-submit token | On login/refresh, `issueSession` sets a **readable** `csrf_token` cookie and returns the value in the JSON body. The SPA echoes it in an `X-CSRF-Token` header on every mutation (`frontend/src/lib/api.ts` request interceptor) |
-| Server enforcement | `auth_middleware` requires `X-CSRF-Token === csrf_token` cookie for cookie-authenticated, unsafe-method requests (anything but GET/HEAD/OPTIONS); mismatch is 403 |
-| Bearer exemption | Bearer-header requests skip the CSRF check, since a browser never auto-attaches a `Bearer` header (only cookies are auto-sent) |
-| SameSite | All auth cookies are `SameSite=Lax` |
+| Bearer transport | The JWT travels in the `Authorization: Bearer` header (`frontend/src/lib/api.ts` request interceptor reads it from `localStorage`), never in a cookie |
+| CSRF not applicable | The browser never auto-attaches an `Authorization` header (only cookies are auto-sent), so a cross-site forged request carries no credentials and there is nothing to double-submit against. No cookies are set anywhere in the API, and `cookie-parser` is not a dependency |
+| No server session | The JWT is stateless: there is no session row, refresh token, or rotation to manage. Logout is client-side (the SPA drops the stored token) |
 
-An attacker's site can cause the browser to send the auth cookies on a forged request, but it cannot read the `csrf_token` cookie to set the matching header (it is same-origin only), so the double-submit check fails.
-
----
-
-## httpOnly cookies and refresh rotation
-
-| Protection | Where it lives |
-| --- | --- |
-| Tokens out of JS reach | `access_token` and `refresh_token` are `httpOnly`, so XSS cannot exfiltrate them. Only the non-sensitive `csrf_token` is readable |
-| Secure in production | `cookieBase()` sets `secure: env.isProduction` (HTTPS-only cookies in prod) |
-| Rotation | Every `/user/refresh` deletes the presented refresh row and issues a fresh one (`consumeRefreshToken` + `issueSession`) |
-| Revocation | `revokeRefreshToken` (logout) and `revokeAllForUser` (logout-everywhere / password change); deleting a user CASCADE-revokes all their sessions |
+Because the token is read by JavaScript and cannot be revoked before it expires, the residual exposure (XSS readability, no instant revocation) is documented under Residual risks below.
 
 ---
 
@@ -81,7 +69,7 @@ An attacker's site can cause the browser to send the auth cookies on a forged re
 
 | Protection | Where it lives |
 | --- | --- |
-| Auth brute-force slowdown | `authLimiter` on `/user/login`, `/register`, `/refresh`, password/verify routes, and the contact form |
+| Auth brute-force slowdown | `authLimiter` on `/user/login`, `/register`, password/verify routes, and the contact form |
 | Payment abuse | `paymentLimiter` on `/payment/create-order` and `/payment/verify` |
 | Webhook backstop | `webhookLimiter` on `/payment/webhook`, ahead of the HMAC check |
 | Correct client IP | `app.set('trust proxy', 1)` so `req.ip` is the real client behind exactly one proxy (minimal value, so clients cannot spoof `X-Forwarded-For` to evade the limiter) |
@@ -107,7 +95,7 @@ Implemented with `express-rate-limit` v7. Store is in-memory (see residual risks
 | Protection | Where it lives |
 | --- | --- |
 | Server-side HTML sanitization | DOMPurify + jsdom (`services/sanitize-service.ts`) runs over the request `data` envelope, so lesson HTML bodies and other rich text are cleaned before storage |
-| Token storage out of JS | httpOnly cookies mean even a successful XSS cannot read the access/refresh tokens |
+| Output escaping | React escapes interpolated text by default; combined with DOMPurify on stored rich text, this is the primary XSS defense (the JWT is the only client-side secret, so keeping XSS out is what protects it) |
 | Secure headers | helmet sets CSP/HSTS/X-Content-Type-Options and friends |
 
 ---
@@ -123,7 +111,7 @@ All database access goes through Sequelize with parameterized queries; there is 
 | Protection | Where it lives |
 | --- | --- |
 | Secure headers | `helmet()` first in the middleware chain (`app.ts`) |
-| Credentialed CORS | `cors({ origin, credentials: true })`; in production `CORS_ORIGIN` is an explicit comma-separated allowlist (a wildcard is illegal with credentials and is only reflected in dev) |
+| CORS allowlist | `cors({ origin })` driven by `CORS_ORIGIN`; in production set it to an explicit comma-separated allowlist (it defaults to `*` for dev). The Bearer token is sent in a header, not a cookie, so no credentialed-CORS handling is needed |
 | Secrets in env only | All config is read through `config/env.ts`; nothing is hardcoded, and required vars (`JWT_SECRET`) throw at startup if missing. The Jenkins pipeline bind-mounts a host `.env` into the container, never baking secrets into the image |
 | Non-root container | The Docker runtime stage runs as the built-in `node` user |
 
@@ -144,6 +132,7 @@ All database access goes through Sequelize with parameterized queries; there is 
 
 ## Residual risks (stated honestly)
 
+- **The JWT lives in `localStorage`.** It is readable by JavaScript, so a successful XSS could exfiltrate it, and because the token is stateless it cannot be revoked before it expires (logout only drops the client copy; a leaked token stays valid for the rest of its lifetime). This is the deliberate trade-off of a bearer token over an httpOnly cookie, taken for simplicity and cross-origin friendliness. The mitigations are a bounded token lifetime (`JWT_EXPIRES_IN`, default `7d`, tunable shorter), helmet's secure headers, output escaping plus DOMPurify on stored HTML to keep XSS out in the first place, and the fact that the token is the only client-side secret (no refresh token, no long-lived cookie alongside it). See [CHALLENGES.md](CHALLENGES.md) for the reasoning.
 - **Encrypted HLS is not DRM.** Within a ticket's validity window, a determined enrolled user could script ffmpeg to reassemble the decrypted stream, and screen capture defeats any web player. The protection stops casual "save the video" downloading, not a motivated attacker. True device DRM (Widevine/FairPlay) is the only complete defense, and is out of scope.
 - **In-memory rate-limit store.** `express-rate-limit` uses an in-memory store, so limits are per-instance. On a single node this is correct; across multiple instances the effective limit multiplies. This was a deliberate trade-off to keep Redis a pure cache (a Redis outage cannot break limited routes). The fix when scaling out is `rate-limit-redis` backed by the existing ioredis client.
 - **No migrations yet.** Schema is managed by `sequelize.sync` (alter in dev, create-only in prod). Production schema changes should move to real migrations before scaling writes.

@@ -2,7 +2,6 @@ import jwt from 'jsonwebtoken';
 import { RequestHandler } from 'express';
 import { env } from '../config/env';
 import { JwtPayload } from '../types/interface';
-import { ACCESS_COOKIE } from '../services/token-service';
 
 /**
  * Best-effort auth for **public** endpoints (catalog, course pages). If a valid
@@ -16,10 +15,10 @@ import { ACCESS_COOKIE } from '../services/token-service';
  */
 export const optional_auth_middleware: RequestHandler = (req, _res, next) => {
   const authHeader = req.headers.authorization;
-  const bearer = authHeader?.startsWith('Bearer ')
-    ? authHeader.slice('Bearer '.length).trim()
-    : '';
-  const token = bearer || ((req.cookies?.[ACCESS_COOKIE] as string | undefined) ?? '');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next();
+  }
+  const token = authHeader.slice('Bearer '.length).trim();
   if (!token) {
     return next();
   }

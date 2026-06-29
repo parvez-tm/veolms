@@ -5,16 +5,10 @@ declare namespace NodeJS {
     CORS_ORIGIN?: string;
     /** Public frontend URL used to build links in transactional emails. */
     APP_URL?: string;
-    /** Auth-cookie SameSite ('lax' | 'strict' | 'none'). Default: 'none' in prod, 'lax' otherwise. */
-    COOKIE_SAMESITE?: string;
-    /** Force the auth-cookie Secure flag ('true'/'false'). Forced true when SameSite=none. */
-    COOKIE_SECURE?: string;
 
     JWT_SECRET?: string;
-    /** Access-token TTL in seconds (httpOnly cookie). */
-    JWT_ACCESS_TTL?: string;
-    /** Refresh-token lifetime in days. */
-    JWT_REFRESH_TTL_DAYS?: string;
+    /** Access-token lifetime (e.g. '7d'); sent to the client as a Bearer token. */
+    JWT_EXPIRES_IN?: string;
 
     /** Transactional email (SMTP). When unset, links are logged to the console. */
     SMTP_HOST?: string;

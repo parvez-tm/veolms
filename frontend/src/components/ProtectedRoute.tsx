@@ -10,18 +10,8 @@ import type { RoleName } from '@/types'
  * request, so a tampered client cannot gain access by bypassing this.
  */
 export function ProtectedRoute({ roles }: { roles?: RoleName[] }) {
-  const { isAuthenticated, initializing, role } = useAuth()
+  const { isAuthenticated, role } = useAuth()
   const location = useLocation()
-
-  // Don't redirect before the initial cookie-based session check resolves, or a
-  // returning user would be bounced to /login on every hard refresh.
-  if (initializing) {
-    return (
-      <div className="grid min-h-[40vh] place-items-center text-sm font-medium text-muted-foreground">
-        Loading…
-      </div>
-    )
-  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { auth_middleware } from '../../../middleware/auth-middleware';
 import { requireRole } from '../../../middleware/role-middleware';
 import { id_checker_middleware } from '../../../middleware/id-validator-middleware';
-import { authLimiter, refreshLimiter } from '../../../middleware/rate-limit-middleware';
+import { authLimiter } from '../../../middleware/rate-limit-middleware';
 import { profileImage } from '../../../services/multer-service';
 import { asyncHandler } from '../../../helpers/async-handler';
 import {
@@ -14,9 +14,7 @@ import {
   getAvatar,
   getUserById,
   login,
-  logout,
   me,
-  refresh,
   register,
   resendVerification,
   resetPassword,
@@ -28,10 +26,8 @@ const router = Router();
 
 router.post('/login', authLimiter, asyncHandler(login));
 router.post('/register', authLimiter, asyncHandler(register));
-// Session lifecycle (cookie-based). refresh/logout work without a valid access
-// token (they rely on the refresh cookie), so they skip auth_middleware.
-router.post('/refresh', refreshLimiter, asyncHandler(refresh));
-router.post('/logout', asyncHandler(logout));
+// Logout is handled client-side (the client drops its stored token); there's no
+// server session to revoke with stateless JWTs.
 router.get('/me', auth_middleware, asyncHandler(me));
 // Password reset + email verification (public token-based, rate-limited).
 router.post('/forgot-password', authLimiter, asyncHandler(forgotPassword));

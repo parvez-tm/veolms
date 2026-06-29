@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { Op, Transaction } from 'sequelize';
 import { User } from './user-model';
 import { Role } from '../role/role-model';
@@ -8,14 +9,6 @@ import { Permission } from '../permission/permission-model';
 import { Menu } from '../menu/menu-model';
 import { env } from '../../../config/env';
 import { sequelize } from '../../../db/sequelize';
-import {
-  issueSession,
-  consumeRefreshToken,
-  revokeRefreshToken,
-  revokeAllForUser,
-  clearSessionCookies,
-  REFRESH_COOKIE,
-} from '../../../services/token-service';
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -113,6 +106,14 @@ function buildPayload(user: User, role: Role): JwtPayload {
   };
 }
 
+/** Sign the access token the client stores and sends as a Bearer token. */
+function signToken(payload: JwtPayload): string {
+  // env.jwt.expiresIn is a validated string (e.g. '7d'); cast for the typed API.
+  return jwt.sign(payload, env.jwt.secret, {
+    expiresIn: env.jwt.expiresIn as unknown as number,
+  });
+}
+
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { userDetail, password } = req.body ?? {};
   if (!userDetail || !password) {
@@ -138,15 +139,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const permissions = await buildPermissionMap(user.role.id);
   const payload = buildPayload(user, user.role);
 
-  // Set httpOnly access + rotating refresh cookies; the CSRF token is returned
-  // so the SPA can echo it on mutating requests.
-  const csrfToken = await issueSession(res, payload);
-
   res.status(200).json({
     message: 'Login successful',
+    token: signToken(payload),
     data: { ...payload, isVerified: user.isVerified },
     permissions,
-    csrfToken,
   });
 };
 
@@ -208,14 +205,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 
   const payload = buildPayload(created, studentRole);
-  const csrfToken = await issueSession(res, payload);
   const permissions = await buildPermissionMap(studentRole.id);
 
   res.status(201).json({
     message: 'Registration successful',
+    token: signToken(payload),
     data: { ...payload, isVerified: false },
     permissions,
-    csrfToken,
   });
 };
 
@@ -253,61 +249,19 @@ export const becomeInstructor = async (
   user.roleId = instructorRole.id; // only roleId changes, so the password hook won't run
   await user.save();
 
-  // Re-issue the session so the new role/permissions take effect immediately.
+  // Re-issue a fresh token so the new role/permissions take effect immediately.
   const payload = buildPayload(user, instructorRole);
-  const csrfToken = await issueSession(res, payload);
   const permissions = await buildPermissionMap(instructorRole.id);
 
   res.status(200).json({
     message: 'You are now an instructor',
+    token: signToken(payload),
     data: { ...payload, isVerified: user.isVerified },
     permissions,
-    csrfToken,
   });
 };
 
-/**
- * Rotate the session from a valid refresh cookie: consume the presented refresh
- * token, re-read the user + role, and issue a fresh access/refresh/CSRF set.
- */
-export const refresh = async (req: Request, res: Response): Promise<void> => {
-  const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
-  if (!raw) {
-    throw new ApiError(401, 'No active session');
-  }
-  const userId = await consumeRefreshToken(raw);
-  if (!userId) {
-    // Do NOT clear cookies here: with strict rotation, two tabs refreshing at
-    // once means the slower one presents an already-consumed token. Clearing
-    // would wipe the cookies the winning tab just rotated in and log both out.
-    // Just 401; the client re-syncs (the winner's success broadcasts via the
-    // USER_KEY storage event), and a genuinely dead cookie is harmless.
-    throw new ApiError(401, 'Session expired. Please log in again');
-  }
-  const user = await User.findByPk(userId, { include: [{ model: Role, as: 'role' }] });
-  if (!user || !user.role) {
-    clearSessionCookies(res);
-    throw new ApiError(401, 'Session is no longer valid');
-  }
-  const payload = buildPayload(user, user.role);
-  const csrfToken = await issueSession(res, payload);
-  const permissions = await buildPermissionMap(user.role.id);
-  res.status(200).json({
-    message: 'Session refreshed',
-    data: { ...payload, isVerified: user.isVerified },
-    permissions,
-    csrfToken,
-  });
-};
-
-/** Clear the session: revoke the refresh token and clear all auth cookies. */
-export const logout = async (req: Request, res: Response): Promise<void> => {
-  await revokeRefreshToken(req.cookies?.[REFRESH_COOKIE] as string | undefined);
-  clearSessionCookies(res);
-  res.status(200).json({ message: 'Logged out' });
-};
-
-/** Current authenticated user's profile (used to bootstrap the SPA). */
+/** Current authenticated user's profile (used to refresh local profile state). */
 export const me = async (req: Request, res: Response): Promise<void> => {
   const user = await User.findByPk(req.user!.id, {
     include: [{ model: Role, as: 'role' }],
@@ -349,7 +303,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     .json({ message: 'If that email is registered, a reset link has been sent.' });
 };
 
-/** Complete a password reset with a valid token; revokes all existing sessions. */
+/** Complete a password reset with a valid token. */
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token, password } = req.body ?? {};
   if (typeof token !== 'string' || typeof password !== 'string' || password.length < 8) {
@@ -368,7 +322,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   user.passwordResetTokenHash = null;
   user.passwordResetExpires = null;
   await user.save();
-  await revokeAllForUser(user.id); // force re-login everywhere
   res.status(200).json({ message: 'Password updated. Please log in.' });
 };
 

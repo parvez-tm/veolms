@@ -4,14 +4,14 @@ A production-style, Udemy-like Learning Management System: a public course marke
 
 VeoLMS is a monorepo. The backend is an Express 5 + TypeScript REST API on PostgreSQL (Sequelize), with Redis as a cache, Cloudflare R2 for object storage, and Razorpay for payments. The frontend is a React 19 SPA built with Vite, Tailwind v4, React Query, and React Router 7.
 
-This repository was built as a hiring challenge. It tries to make production decisions, not demo decisions: cookie-based auth with refresh rotation and CSRF, server-derived payment amounts with idempotent fulfillment, AES-128 encrypted HLS video that cannot be saved as a single file, and a media lifecycle that does not leak orphaned objects.
+This repository was built as a hiring challenge. It tries to make production decisions, not demo decisions: stateless JWT bearer auth, server-derived payment amounts with idempotent fulfillment, AES-128 encrypted HLS video that cannot be saved as a single file, and a media lifecycle that does not leak orphaned objects.
 
 ---
 
 ## What it does
 
 - **Public marketplace.** A homepage with hero, category browse, featured and most-popular sections, testimonials, and FAQ. A searchable, filterable catalog. Public course detail pages (no login) with curriculum, instructor, pricing, and free preview lessons that actually play for anonymous visitors.
-- **Auth.** Register, log in, log out, forgot/reset password, email verification (non-blocking), and a self-serve Student to Instructor upgrade. Sessions use an httpOnly access-token cookie plus a rotating refresh token, with silent refresh on expiry and CSRF protection.
+- **Auth.** Register, log in, log out, forgot/reset password, email verification (non-blocking), and a self-serve Student to Instructor upgrade. Auth is a stateless JWT bearer token: login returns the token in the response body, the SPA stores it in `localStorage` and sends it as `Authorization: Bearer <token>`, and logout drops the stored token client-side.
 - **Authoring (Instructor/Admin).** Full course CRUD, publish/unpublish, section and lesson management with reorder, image uploads (thumbnail + banner), pricing with optional discount, and direct-to-R2 video uploads that transcode to encrypted adaptive HLS.
 - **Learning (Student).** Enroll (free directly, paid via Razorpay), My Courses with progress, Continue Learning that resumes the first incomplete lesson, recently-watched history, and a custom video player with resume, speed, PiP, quality selection, and keyboard shortcuts.
 - **Admin dashboard.** Overview stats (courses, students, enrollments, revenue, paying/active/registered users) and a sales view.
@@ -20,14 +20,14 @@ This repository was built as a hiring challenge. It tries to make production dec
 
 | Area | What is implemented |
 | --- | --- |
-| Auth | JWT access token in an httpOnly cookie, rotating opaque refresh token (sha256-hashed in DB), CSRF double-submit, bcrypt hashing, forgot/reset (1h token), email verification, Student to Instructor upgrade |
+| Auth | Stateless JWT bearer token (returned in the login body, stored client-side, sent as `Authorization: Bearer`), bcrypt hashing, forgot/reset (1h token), email verification, Student to Instructor upgrade |
 | Catalog & search | Free-text search across course title/subtitle/description, category name, and instructor name; category + level filters; sort by newest/popular/price; live student count, lesson count, and total duration |
 | Course detail (public) | Banner + thumbnail, instructor, level/language/duration, learning outcomes / prerequisites / who-it-is-for, tags, discounted pricing, curriculum tree, playable free preview lessons |
 | Video | Direct-to-R2 presigned upload, ffmpeg transcode to AES-128 encrypted ABR HLS (360/480/720/1080 capped at source), ticket-gated playback, raw MP4 deleted after transcode |
 | Player | Play/pause/seek/volume/fullscreen, keyboard shortcuts, resume, progress saving, playback speed, Picture-in-Picture, quality selection |
 | Payments | Razorpay Orders REST API (no SDK), server-derived amounts, HMAC-SHA256 verification (callback + webhook), idempotent fulfillment under concurrency, webhook as source of truth, money in paise |
 | RBAC | Admin / Instructor / Student roles, `requireRole` + course ownership, Admin-only control panel |
-| Hardening | helmet, credentialed CORS allowlist, rate limiting on auth/payment/webhook, input validation, DOMPurify sanitization, parameterized ORM queries, httpOnly cookies |
+| Hardening | helmet, CORS allowlist, rate limiting on auth/payment/webhook, input validation, DOMPurify sanitization, parameterized ORM queries, RBAC with course ownership |
 
 **Not built, by design (stated honestly):** there is no ratings/reviews system (we show real enrollment student counts, not star ratings), no wishlist, no quizzes/assessments, no captions, and no YouTube/external video source (video is upload-only so it can be protected).
 
@@ -44,7 +44,7 @@ This repository was built as a hiring challenge. It tries to make production dec
 | Database | PostgreSQL | (Neon, managed) | Relational data, JSON columns, row locks for payments |
 | Cache | Redis (ioredis) | 5 | Role-permission version cache; strictly a cache, degrades to Postgres |
 | Storage | Cloudflare R2 | S3-compatible | Private bucket, presigned URLs, and $0 egress for video |
-| Auth | jsonwebtoken + bcryptjs | 9 / 3 | JWT access token, bcrypt password hashing |
+| Auth | jsonwebtoken + bcryptjs | 9 / 3 | Stateless JWT bearer token, bcrypt password hashing |
 | Payments | Razorpay | (no SDK) | Orders REST API + `crypto` HMAC, tiny dependency surface |
 | Video | ffmpeg + hls.js | system / 1.6 | Encrypted ABR HLS transcode + browser playback |
 | Email | nodemailer | 9 | SMTP when configured, console fallback in dev |
@@ -84,7 +84,7 @@ VeoLMS/
     test/                    vitest unit tests
   frontend/
     src/
-      lib/api.ts             axios instance: credentials + CSRF + silent refresh
+      lib/api.ts             axios instance: attaches the stored JWT as Authorization: Bearer
       pages/                 public, student, and admin pages
       features/              per-domain API hooks (React Query)
       components/            layout, UI primitives, LessonPlayer
