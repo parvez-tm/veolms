@@ -6,6 +6,7 @@ import { useCategories } from '@/features/courses/api'
 import { apiErrorMessage } from '@/lib/api'
 import { Decor } from '@/components/layout/Decor'
 import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -277,18 +278,11 @@ export function NewCoursePage() {
                   className="pl-9"
                 />
               </div>
-              <span
-                className={
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ' +
-                  (isFree
-                    ? 'bg-teal/15 text-teal'
-                    : 'bg-secondary text-primary-strong')
-                }
-              >
+              <Badge tone={isFree ? 'success' : 'coral'}>
                 {isFree
                   ? 'Free, anyone can enroll'
                   : `Students pay ₹${rupees.toLocaleString('en-IN')} once`}
-              </span>
+              </Badge>
             </div>
 
             <div className="space-y-2">

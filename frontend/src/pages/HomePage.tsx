@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CourseCard, CourseCardSkeleton } from '@/features/courses/CourseCard'
+import { CategoryChip } from '@/features/courses/CategoryChip'
 import { useCatalog, useCategories } from '@/features/courses/api'
 import { useAuth } from '@/context/AuthContext'
 
@@ -211,18 +212,12 @@ export function HomePage() {
           </h2>
           <div className="mt-7 flex flex-wrap gap-3">
             {(categories ?? []).map((c) => (
-              <Link
+              <CategoryChip
                 key={c.id}
+                label={c.name}
+                count={Number(c.courseCount)}
                 to={`/courses?category=${c.id}`}
-                className="pop pop-hover inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold"
-              >
-                {c.name}
-                {Number(c.courseCount) > 0 && (
-                  <span className="rounded-full bg-tint px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                    {Number(c.courseCount)}
-                  </span>
-                )}
-              </Link>
+              />
             ))}
           </div>
         </section>

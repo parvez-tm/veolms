@@ -27,10 +27,10 @@ function VerifyBanner() {
   return (
     <div className="border-b border-amber/40 bg-amber/15">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-4 py-2 text-sm font-medium sm:px-6">
-        <MailWarning className="h-4 w-4 text-amber-700" />
+        <MailWarning className="h-4 w-4 text-amber" />
         <span>Please verify your email to secure your account.</span>
         {state === 'sent' ? (
-          <span className="font-semibold text-teal-700">Verification email sent.</span>
+          <span className="font-semibold text-teal">Verification email sent.</span>
         ) : (
           <button
             type="button"

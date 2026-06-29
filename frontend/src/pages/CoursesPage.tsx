@@ -4,8 +4,9 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CourseCard, CourseCardSkeleton } from '@/features/courses/CourseCard'
+import { CategoryChip } from '@/features/courses/CategoryChip'
+import { Select } from '@/components/ui/select'
 import { useCatalog, useCategories } from '@/features/courses/api'
-import { cn } from '@/lib/utils'
 
 const SORTS = [
   { value: 'newest', label: 'Newest' },
@@ -77,7 +78,7 @@ export function CoursesPage() {
             </p>
           </div>
 
-          <form onSubmit={onSearch} className="pop flex w-full max-w-md items-center gap-2 p-1.5 pl-4">
+          <form onSubmit={onSearch} className="pop flex w-full max-w-md items-center gap-2 rounded-full p-1.5 pl-4">
             <Search className="pointer-events-none h-4 w-4 shrink-0 text-muted-foreground" />
             <Input
               value={input}
@@ -91,44 +92,29 @@ export function CoursesPage() {
 
         {/* Filters: category chips + sort */}
         <div className="mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => patch('category', undefined)}
-              className={cn(
-                'rounded-full border-2 px-3.5 py-1.5 text-sm font-bold transition-colors',
-                !categoryId ? 'border-ink bg-foreground text-background' : 'border-border hover:border-ink'
-              )}
-            >
-              All
-            </button>
+          <div className="flex flex-wrap gap-3">
+            <CategoryChip label="All" active={!categoryId} onClick={() => patch('category', undefined)} />
             {(categories ?? []).map((c) => (
-              <button
+              <CategoryChip
                 key={c.id}
-                type="button"
+                label={c.name}
+                count={Number(c.courseCount)}
+                active={categoryId === c.id}
                 onClick={() => patch('category', String(c.id))}
-                className={cn(
-                  'rounded-full border-2 px-3.5 py-1.5 text-sm font-bold transition-colors',
-                  categoryId === c.id ? 'border-ink bg-foreground text-background' : 'border-border hover:border-ink'
-                )}
-              >
-                {c.name}
-              </button>
+              />
             ))}
           </div>
 
-          <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-            Sort
-            <select
-              value={sort}
-              onChange={(e) => patch('sort', e.target.value === 'newest' ? undefined : e.target.value)}
-              className="rounded-xl border-2 border-border bg-card px-3 py-1.5 text-sm font-bold text-foreground"
-            >
-              {SORTS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </label>
+          <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-muted-foreground">
+            <span>Sort</span>
+            <div className="w-48">
+              <Select
+                value={sort}
+                onChange={(v) => patch('sort', v === 'newest' ? undefined : v)}
+                options={SORTS}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

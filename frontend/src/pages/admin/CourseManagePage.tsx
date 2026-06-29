@@ -28,6 +28,7 @@ import { apiErrorMessage } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
 import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { LessonFormModal } from '@/components/admin/LessonFormModal'
 import { CourseDetailsModal } from '@/components/admin/CourseDetailsModal'
@@ -155,16 +156,12 @@ export function CourseManagePage() {
             <span className="eyebrow">Manage course</span>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-extrabold tracking-tight">{course.title}</h1>
-              <span
-                className={
-                  'rounded-full px-3 py-1 text-xs font-bold ' +
-                  (course.status === 'published'
-                    ? 'bg-teal/15 text-teal'
-                    : 'bg-muted text-muted-foreground')
-                }
+              <Badge
+                tone={course.status === 'published' ? 'success' : 'neutral'}
+                className="capitalize"
               >
                 {course.status}
-              </span>
+              </Badge>
             </div>
             {course.subtitle && (
               <p className="mt-2 text-muted-foreground">{course.subtitle}</p>
@@ -282,9 +279,9 @@ export function CourseManagePage() {
                       </span>
                       <span className="truncate font-medium">{lesson.title}</span>
                       {lesson.isPreview ? (
-                        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-primary-strong">
+                        <Badge tone="amber" className="shrink-0 capitalize">
                           preview
-                        </span>
+                        </Badge>
                       ) : (
                         <Lock className="h-3 w-3 shrink-0 text-muted-foreground/60" />
                       )}

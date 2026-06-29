@@ -5,6 +5,10 @@ declare namespace NodeJS {
     CORS_ORIGIN?: string;
     /** Public frontend URL used to build links in transactional emails. */
     APP_URL?: string;
+    /** Auth-cookie SameSite ('lax' | 'strict' | 'none'). Default: 'none' in prod, 'lax' otherwise. */
+    COOKIE_SAMESITE?: string;
+    /** Force the auth-cookie Secure flag ('true'/'false'). Forced true when SameSite=none. */
+    COOKIE_SECURE?: string;
 
     JWT_SECRET?: string;
     /** Access-token TTL in seconds (httpOnly cookie). */

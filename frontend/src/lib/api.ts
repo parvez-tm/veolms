@@ -4,6 +4,31 @@ import axios from 'axios'
 export const USER_KEY = 'veolms_user'
 /** Readable CSRF cookie set by the server on login/refresh (double-submit). */
 const CSRF_COOKIE = 'csrf_token'
+/** Where we keep the CSRF token the server returns in the auth response body. */
+const CSRF_STORE_KEY = 'veolms_csrf'
+
+// The server returns the CSRF token both as a readable cookie AND in the auth
+// response body. We persist the body value because a cross-site SPA (frontend
+// and API on different origins) CANNOT read the API's cookie via document.cookie,
+// so the cookie path alone would break CSRF for cross-origin deployments.
+let csrfToken: string | null = (() => {
+  try {
+    return localStorage.getItem(CSRF_STORE_KEY)
+  } catch {
+    return null
+  }
+})()
+
+/** Store (or clear) the CSRF token from a login/register/refresh response. */
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token
+  try {
+    if (token) localStorage.setItem(CSRF_STORE_KEY, token)
+    else localStorage.removeItem(CSRF_STORE_KEY)
+  } catch {
+    /* ignore storage failures */
+  }
+}
 
 /**
  * Axios instance for the VeoLMS API. Auth rides in httpOnly cookies, so requests
@@ -26,7 +51,8 @@ function readCookie(name: string): string | null {
 api.interceptors.request.use((config) => {
   const method = (config.method ?? 'get').toLowerCase()
   if (method !== 'get' && method !== 'head' && method !== 'options') {
-    const csrf = readCookie(CSRF_COOKIE)
+    // Prefer the stored token (works cross-origin); fall back to the cookie.
+    const csrf = csrfToken ?? readCookie(CSRF_COOKIE)
     if (csrf) config.headers['X-CSRF-Token'] = csrf
   }
   return config
@@ -51,6 +77,7 @@ function refreshSession(): Promise<boolean> {
  *  ProtectedRoute sends unauthenticated users to /login on its own. */
 function endSession(): void {
   localStorage.removeItem(USER_KEY)
+  setCsrfToken(null)
   window.dispatchEvent(new Event('veolms:logout'))
 }
 

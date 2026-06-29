@@ -19,6 +19,26 @@ function optional(name: keyof NodeJS.ProcessEnv, fallback: string): string {
 }
 
 const nodeEnv = optional('NODE_ENV', 'development');
+const isProduction = nodeEnv === 'production';
+
+// Auth-cookie delivery. For a cross-site frontend/API (the SPA on one origin,
+// the API on another) the browser only sends cookies on XHR when they are
+// SameSite=None + Secure, so that's the production default. Same-origin
+// deployments work with this too (None is a superset of Lax). Local dev over
+// http defaults to Lax (Secure cookies are dropped over http). Override with
+// COOKIE_SAMESITE / COOKIE_SECURE when needed.
+const cookieSameSite = optional(
+  'COOKIE_SAMESITE',
+  isProduction ? 'none' : 'lax'
+).toLowerCase() as 'lax' | 'strict' | 'none';
+const cookie = {
+  sameSite: cookieSameSite,
+  // SameSite=None is only valid alongside Secure; otherwise follow the flag/env.
+  secure:
+    cookieSameSite === 'none'
+      ? true
+      : optional('COOKIE_SECURE', String(isProduction)) === 'true',
+};
 
 const r2 = {
   endpoint: optional('R2_ENDPOINT', ''),
@@ -60,7 +80,9 @@ email.configured = !!(email.host && email.user && email.pass);
 
 export const env = {
   nodeEnv,
-  isProduction: nodeEnv === 'production',
+  isProduction,
+  /** Auth-cookie SameSite/Secure attributes (see the comment above `cookie`). */
+  cookie,
   port: Number(optional('PORT', '5005')),
   corsOrigin: optional('CORS_ORIGIN', '*'),
   /** Public URL of the frontend, used to build links in transactional emails. */

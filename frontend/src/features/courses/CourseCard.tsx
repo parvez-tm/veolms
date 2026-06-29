@@ -105,7 +105,7 @@ export function CourseCard({ course }: { course: Course }) {
               <BookOpen className="h-3.5 w-3.5" /> {lessons} lessons
             </span>
           )}
-          <span className="capitalize text-teal">{course.level}</span>
+          <span className="capitalize text-primary-strong">{course.level}</span>
         </div>
 
         <div className="mt-auto border-t-2 border-dashed border-border pt-3">

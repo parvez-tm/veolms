@@ -1,12 +1,13 @@
 import { IndianRupee, ShoppingBag, Users } from 'lucide-react'
 import { useAllPayments, type PaymentRow } from '@/features/admin/sales'
 import { Decor } from '@/components/layout/Decor'
+import { Badge, type BadgeTone } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
 
-function statusPill(status: PaymentRow['status']) {
-  if (status === 'paid') return 'bg-teal/15 text-teal'
-  if (status === 'failed') return 'bg-destructive/10 text-destructive'
-  return 'bg-muted text-muted-foreground'
+function statusTone(status: PaymentRow['status']): BadgeTone {
+  if (status === 'paid') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'neutral'
 }
 
 function StatCard({
@@ -106,9 +107,9 @@ export function AdminSalesPage() {
                       {formatPrice(p.amount, p.currency)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={'rounded-full px-2.5 py-1 text-xs font-bold ' + statusPill(p.status)}>
+                      <Badge tone={statusTone(p.status)} className="capitalize">
                         {p.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-5 py-3 tabular-nums text-muted-foreground">
                       {new Date(p.createdAt).toLocaleDateString('en-IN', {

@@ -8,6 +8,7 @@ import {
 } from '@/features/admin/api'
 import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
 
 export function AdminCoursesPage() {
@@ -120,16 +121,12 @@ export function AdminCoursesPage() {
                   </p>
                 </div>
 
-                <span
-                  className={
-                    'shrink-0 rounded-full px-3 py-1 text-xs font-bold ' +
-                    (c.status === 'published'
-                      ? 'bg-teal/15 text-teal'
-                      : 'bg-muted text-muted-foreground')
-                  }
+                <Badge
+                  tone={c.status === 'published' ? 'success' : 'neutral'}
+                  className="shrink-0 capitalize"
                 >
                   {c.status}
-                </span>
+                </Badge>
 
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="ghost" size="icon" asChild title="Manage">

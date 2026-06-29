@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useManagedCourses, useStats } from '@/features/admin/api'
 import { Decor } from '@/components/layout/Decor'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
 
 function StatCard({
@@ -263,16 +264,12 @@ export function AdminDashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <span
-                      className={
-                        'shrink-0 rounded-full px-3 py-1 text-xs font-bold capitalize ' +
-                        (c.status === 'published'
-                          ? 'bg-teal/15 text-teal'
-                          : 'bg-muted text-muted-foreground')
-                      }
+                    <Badge
+                      tone={c.status === 'published' ? 'success' : 'neutral'}
+                      className="shrink-0 capitalize"
                     >
                       {c.status}
-                    </span>
+                    </Badge>
                   </Link>
                 </li>
               ))}

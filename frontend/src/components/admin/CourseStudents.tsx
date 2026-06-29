@@ -1,5 +1,6 @@
 import { Users } from 'lucide-react'
 import { useCourseStudents } from '@/features/admin/manage'
+import { Badge } from '@/components/ui/badge'
 
 export function CourseStudents({ courseId }: { courseId: string | number }) {
   const { data, isLoading } = useCourseStudents(courseId)
@@ -54,16 +55,12 @@ export function CourseStudents({ courseId }: { courseId: string | number }) {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <span
-                    className={
-                      'rounded-full px-2.5 py-1 text-xs font-bold ' +
-                      (s.status === 'completed'
-                        ? 'bg-teal/15 text-teal'
-                        : 'bg-secondary text-primary-strong')
-                    }
+                  <Badge
+                    tone={s.status === 'completed' ? 'success' : 'neutral'}
+                    className="capitalize"
                   >
                     {s.status}
-                  </span>
+                  </Badge>
                   <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
                     {new Date(s.createdAt).toLocaleDateString('en-IN', {
                       day: '2-digit',

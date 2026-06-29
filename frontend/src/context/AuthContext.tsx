@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import api, { USER_KEY } from '@/lib/api'
+import api, { USER_KEY, setCsrfToken } from '@/lib/api'
 import { dashboardPathFor } from '@/lib/auth'
 import type { AuthUser, AuthResponse, RoleName } from '@/types'
 
@@ -54,12 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const persist = useCallback((res: AuthResponse) => {
     localStorage.setItem(USER_KEY, JSON.stringify(res.data))
+    // Keep the CSRF token the server issued so we can echo it on mutations even
+    // when the SPA can't read the (cross-site) cookie.
+    if (res.csrfToken) setCsrfToken(res.csrfToken)
     setUser(res.data)
     return res.data
   }, [])
 
   const clear = useCallback(() => {
     localStorage.removeItem(USER_KEY)
+    setCsrfToken(null)
     setUser(null)
   }, [])
 

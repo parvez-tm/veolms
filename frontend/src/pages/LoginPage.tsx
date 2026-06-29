@@ -70,7 +70,7 @@ export function LoginPage() {
         </p>
 
         {justReset && (
-          <p className="mt-4 rounded-xl bg-teal/10 px-3.5 py-2.5 text-sm font-medium text-teal-700">
+          <p className="mt-4 rounded-xl bg-teal/10 px-3.5 py-2.5 text-sm font-medium text-teal">
             Your password was updated. Please log in.
           </p>
         )}

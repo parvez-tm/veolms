@@ -13,20 +13,21 @@ const accessMaxAgeMs = env.jwt.accessTtlSec * 1000;
 const refreshMaxAgeMs = env.jwt.refreshTtlDays * 24 * 60 * 60 * 1000;
 
 /**
- * Shared cookie attributes. SameSite=Lax + httpOnly defends against CSRF/XSS
- * token theft; Secure is on in production (HTTPS). Path '/' keeps the cookies
- * valid behind a reverse proxy that rewrites the API path prefix.
+ * Shared cookie attributes. httpOnly defends against XSS token theft; the
+ * SameSite/Secure pair comes from config (SameSite=None+Secure in production so
+ * a cross-site SPA can send the cookies; Lax for local http dev). Path '/' keeps
+ * the cookies valid behind a reverse proxy that rewrites the API path prefix.
  */
 function cookieBase(): {
   httpOnly: boolean;
   secure: boolean;
-  sameSite: 'lax';
+  sameSite: 'lax' | 'strict' | 'none';
   path: string;
 } {
   return {
     httpOnly: true,
-    secure: env.isProduction,
-    sameSite: 'lax',
+    secure: env.cookie.secure,
+    sameSite: env.cookie.sameSite,
     path: '/',
   };
 }
