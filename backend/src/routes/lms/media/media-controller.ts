@@ -154,10 +154,13 @@ export const hlsPlaylist = async (req: Request, res: Response): Promise<void> =>
   }
 
   const text = await getObjectText(asset.hlsPrefix + p);
-  const base = `${req.protocol}://${req.get('host')}/api/media/hls/${assetId}`;
   const tq = `ticket=${encodeURIComponent(ticket)}`;
   const prefix = asset.hlsPrefix;
 
+  // Nested playlist + key links are written RELATIVE to this playlist's URL, so
+  // the browser/hls.js resolves them against whatever public origin + path prefix
+  // it used to fetch this playlist (e.g. behind /veolms-api). Segments stay as
+  // absolute presigned R2 URLs.
   let out: string;
   if (text.includes('#EXT-X-STREAM-INF')) {
     // Master playlist → route each variant playlist back through this gated endpoint.
@@ -166,7 +169,7 @@ export const hlsPlaylist = async (req: Request, res: Response): Promise<void> =>
       .map((line) => {
         const t = line.trim();
         if (t && !t.startsWith('#') && t.endsWith('.m3u8')) {
-          return `${base}/playlist?${tq}&p=${encodeURIComponent(t)}`;
+          return `playlist?${tq}&p=${encodeURIComponent(t)}`;
         }
         return line;
       })
@@ -176,7 +179,7 @@ export const hlsPlaylist = async (req: Request, res: Response): Promise<void> =>
     const lines = await Promise.all(
       text.split('\n').map(async (line) => {
         if (line.startsWith('#EXT-X-KEY')) {
-          return line.replace(/URI="[^"]*"/, `URI="${base}/key?${tq}"`);
+          return line.replace(/URI="[^"]*"/, `URI="key?${tq}"`);
         }
         const t = line.trim();
         if (t && !t.startsWith('#') && t.endsWith('.ts')) {

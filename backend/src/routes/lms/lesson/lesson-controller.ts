@@ -278,11 +278,13 @@ export const getLessonPlayback = async (
     if (asset.hlsStatus === 'ready') {
       // userId 0 for anonymous preview viewers; the ticket still gates access.
       const ticket = issueHlsTicket(asset.id, req.user?.id ?? 0);
-      const base = `${req.protocol}://${req.get('host')}`;
       res.status(200).json({
         data: {
           source: 'hls',
-          url: `${base}/api/media/hls/${asset.id}/playlist?ticket=${encodeURIComponent(ticket)}`,
+          // Path relative to the API base. The client resolves it against its
+          // API origin (VITE_API_URL), so playback works behind any reverse-proxy
+          // path prefix (e.g. /veolms-api) with no extra backend config.
+          url: `/media/hls/${asset.id}/playlist?ticket=${encodeURIComponent(ticket)}`,
         },
         message: 'Playback URL issued',
       });

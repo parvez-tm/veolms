@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Mail, MessageSquare, Clock, CheckCircle2 } from 'lucide-react'
-import api, { apiErrorMessage } from '@/lib/api'
+import { Mail, MessageSquare, Clock, CheckCircle2, MailWarning } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,25 +29,16 @@ const INFO = [
 export function ContactPage() {
   const [sent, setSent] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }))
 
-  const onSubmit = async (e: FormEvent) => {
+  // Demo: no email provider is configured, so the message isn't actually sent.
+  // We acknowledge it locally; wire this back to the backend once email is enabled.
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      await api.post('/contact', form)
-      setSent(true)
-      setForm({ name: '', email: '', subject: '', message: '' })
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Could not send your message'))
-    } finally {
-      setLoading(false)
-    }
+    setSent(true)
+    setForm({ name: '', email: '', subject: '', message: '' })
   }
 
   return (
@@ -132,10 +122,11 @@ export function ContactPage() {
                     <CheckCircle2 className="h-7 w-7" />
                   </span>
                   <h3 className="mt-5 text-2xl font-extrabold tracking-tight">
-                    Message sent!
+                    Thanks for reaching out!
                   </h3>
                   <p className="mt-2 font-medium text-muted-foreground">
-                    Thanks for reaching out. We&apos;ll get back to you soon.
+                    Email isn&apos;t enabled in this demo, so your message wasn&apos;t
+                    actually sent. This will be wired up in the future.
                   </p>
                   <Button
                     variant="outline"
@@ -147,6 +138,13 @@ export function ContactPage() {
                 </div>
               ) : (
                 <form onSubmit={onSubmit} className="space-y-5">
+                  <div className="flex gap-3 rounded-xl border-2 border-amber/40 bg-amber/10 px-4 py-3">
+                    <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-amber" />
+                    <p className="text-sm font-medium text-foreground">
+                      This is a demo: email delivery isn&apos;t set up yet, so messages
+                      aren&apos;t actually sent. This will be enabled in the future.
+                    </p>
+                  </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="name">Name</Label>
@@ -179,13 +177,8 @@ export function ContactPage() {
                       required
                     />
                   </div>
-                  {error && (
-                    <p className="rounded-xl bg-destructive/10 px-3.5 py-2.5 text-sm font-medium text-destructive">
-                      {error}
-                    </p>
-                  )}
-                  <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                    {loading ? 'Sending…' : 'Send message'}
+                  <Button type="submit" size="lg" className="w-full">
+                    Send message
                   </Button>
                 </form>
               )}

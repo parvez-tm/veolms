@@ -86,11 +86,11 @@ export function SignupPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First name</Label>
-              <Input id="firstName" value={form.firstName} onChange={update('firstName')} required />
+              <Input id="firstName" placeholder="Jane" value={form.firstName} onChange={update('firstName')} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last name</Label>
-              <Input id="lastName" value={form.lastName} onChange={update('lastName')} required />
+              <Input id="lastName" placeholder="Doe" value={form.lastName} onChange={update('lastName')} required />
             </div>
           </div>
           <div className="space-y-2">
@@ -99,6 +99,7 @@ export function SignupPage() {
               id="email"
               type="email"
               autoComplete="email"
+              placeholder="you@example.com"
               value={form.email}
               onChange={update('email')}
               required
@@ -110,6 +111,7 @@ export function SignupPage() {
               id="password"
               type="password"
               autoComplete="new-password"
+              placeholder="At least 8 characters"
               value={form.password}
               onChange={update('password')}
               required

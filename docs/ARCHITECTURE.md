@@ -172,6 +172,8 @@ In the browser Network tab, segments are AES-encrypted blobs and the decryption 
 
 The R2 bucket CORS policy must allow cross-origin `PUT` (browser direct-to-R2 uploads) and `GET` (hls.js fetching the presigned segment URLs) from the SPA origin, plus the `content-type` request header. The HLS playlist and AES key come from the API, so only segment GETs and uploads hit R2 cross-origin.
 
+The playlist returns a URL relative to the API base, and its internal variant/key links are written relative to the playlist's own URL. The SPA resolves the playback URL against its API origin (built from `VITE_API_URL`), and hls.js resolves the nested links against the playlist it fetched. So playback works behind a reverse-proxy path prefix (e.g. `/veolms-api`) with no extra backend config; only the segment URLs are absolute (presigned R2).
+
 ---
 
 ## Payment flow

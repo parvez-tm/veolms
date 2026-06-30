@@ -126,7 +126,13 @@ export function CourseDetailsModal({
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="cTitle">Title</Label>
-          <Input id="cTitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Input
+            id="cTitle"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. The Complete JavaScript Course"
+            required
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cSubtitle">Subtitle</Label>
@@ -134,6 +140,7 @@ export function CourseDetailsModal({
             id="cSubtitle"
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
+            placeholder="One line that sells the course"
           />
         </div>
         <div className="space-y-2">
@@ -142,6 +149,7 @@ export function CourseDetailsModal({
             id="cDesc"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="What will students learn? What will they build?"
             rows={5}
           />
         </div>

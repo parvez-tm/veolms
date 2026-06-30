@@ -56,8 +56,15 @@ export function useCourseProgress(courseId: string | undefined, enabled: boolean
 export function usePlayback(lessonId: number | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['playback', lessonId],
-    queryFn: async () =>
-      (await api.get<{ data: Playback }>(`/lesson/getPlayback/${lessonId}`)).data.data,
+    queryFn: async () => {
+      const pb = (await api.get<{ data: Playback }>(`/lesson/getPlayback/${lessonId}`)).data
+        .data
+      // The HLS playlist URL comes back relative to the API base (so it survives a
+      // reverse-proxy path prefix). Resolve it to absolute using the axios client's
+      // own baseURL, so hls.js fetches the right origin. The R2 MP4 fallback is
+      // already an absolute presigned URL, so it passes through unchanged.
+      return pb.source === 'hls' ? { ...pb, url: api.getUri({ url: pb.url }) } : pb
+    },
     enabled: enabled && !!lessonId,
     staleTime: 60_000,
   })

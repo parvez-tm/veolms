@@ -55,6 +55,7 @@ export function ResetPasswordPage() {
                 id="password"
                 type="password"
                 autoComplete="new-password"
+                placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -66,6 +67,7 @@ export function ResetPasswordPage() {
                 id="confirm"
                 type="password"
                 autoComplete="new-password"
+                placeholder="Re-enter your password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
