@@ -152,6 +152,13 @@ export const getCatalog = async (req: Request, res: Response): Promise<void> => 
   if (LEVELS.includes(req.query.level as CourseLevel)) {
     filter.level = req.query.level;
   }
+  // Scope to one instructor's published courses (their public "storefront").
+  if (req.query.instructorId !== undefined) {
+    const instructorId = Number(req.query.instructorId);
+    if (Number.isInteger(instructorId) && instructorId > 0) {
+      filter.instructorId = instructorId;
+    }
+  }
 
   // Single free-text query matched (case-insensitively) against the course's own
   // text columns and the associated category + instructor names.

@@ -7,6 +7,8 @@ export interface CatalogParams {
   q?: string
   level?: string
   categoryId?: number
+  /** Scope to one instructor's published courses. */
+  instructorId?: number
   /** 'popular' | 'newest' | 'oldest' | 'price-low' | 'price-high' */
   sort?: string
   limit?: number
@@ -18,6 +20,7 @@ async function fetchCatalog(params: CatalogParams): Promise<Course[]> {
       ...(params.q ? { q: params.q } : {}),
       ...(params.level ? { level: params.level } : {}),
       ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+      ...(params.instructorId ? { instructorId: params.instructorId } : {}),
       ...(params.sort ? { sort: params.sort } : {}),
       ...(params.limit ? { limit: params.limit } : {}),
     },

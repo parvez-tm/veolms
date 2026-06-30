@@ -194,11 +194,11 @@ export function AdminDashboardPage() {
             />
           ) : (
             <QuickAction
-              to="/"
+              to={`/courses?instructor=${user?.id}`}
               icon={Globe}
               tone="bg-violet"
               title="Visit your storefront"
-              desc="See how learners view your courses."
+              desc="See how learners view your published courses."
             />
           )}
         </div>

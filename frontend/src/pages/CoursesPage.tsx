@@ -19,6 +19,7 @@ export function CoursesPage() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const categoryId = params.get('category') ? Number(params.get('category')) : undefined
+  const instructorId = params.get('instructor') ? Number(params.get('instructor')) : undefined
   const sort = params.get('sort') ?? 'newest'
   const [input, setInput] = useState(q)
 
@@ -26,11 +27,18 @@ export function CoursesPage() {
   const { data: courses, isLoading, isError } = useCatalog({
     q: q || undefined,
     categoryId,
+    instructorId,
     sort,
     limit: 48,
   })
 
   const activeCategory = (categories ?? []).find((c) => c.id === categoryId)
+  // When scoped to an instructor, name them from the first result (each catalog
+  // course carries its instructor).
+  const ins = courses?.[0]?.instructor
+  const instructorName = ins
+    ? `${ins.firstName ?? ''} ${ins.lastName ?? ''}`.trim() || ins.userName
+    : undefined
 
   // Merge a single param into the URL (clearing it when empty).
   const patch = (key: string, value?: string) => {
@@ -55,7 +63,7 @@ export function CoursesPage() {
           <div>
             <span className="eyebrow">Catalog</span>
             <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
-              {q || activeCategory ? 'Courses' : (
+              {q || activeCategory || instructorId ? 'Courses' : (
                 <>
                   Browse the{' '}
                   <span className="relative whitespace-nowrap text-primary">
@@ -70,12 +78,23 @@ export function CoursesPage() {
             <p className="mt-4 text-lg font-medium text-muted-foreground">
               {q ? (
                 <>Results for <span className="font-bold text-primary-strong">“{q}”</span></>
+              ) : instructorId ? (
+                <>Courses by <span className="font-bold text-primary-strong">{instructorName ?? 'this instructor'}</span></>
               ) : activeCategory ? (
                 <>Showing <span className="font-bold text-primary-strong">{activeCategory.name}</span></>
               ) : (
                 'Bite-sized, project-based courses. Stream lessons, track progress, and actually finish.'
               )}
             </p>
+            {instructorId && (
+              <button
+                type="button"
+                onClick={() => patch('instructor', undefined)}
+                className="mt-3 text-sm font-bold text-primary-strong hover:underline"
+              >
+                View all courses
+              </button>
+            )}
           </div>
 
           <form onSubmit={onSearch} className="pop flex w-full max-w-md items-center gap-2 rounded-full p-1.5 pl-4">
