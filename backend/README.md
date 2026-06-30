@@ -184,17 +184,15 @@ lost. `POST /media/cleanup` (Admin) sweeps abandoned `pending` uploads **and** r
 > stop requires DRM (Widevine/FairPlay). Because external video URLs aren't allowed, every
 > lesson video goes through this protected path.
 
-On a fresh (empty) database the seeder also creates demo logins (dev only; change
-for production) and a demo catalog of **4 published courses** (JavaScript, React, Node,
-and a **free** CSS course), each with 2 sections, 5 video/text lessons, and a free
-preview. Video lessons are seeded **without a source** (video is upload-only); upload your
-own clips to them from the admin panel and they start playing.
+On a fresh (empty) database the seeder creates **bootstrap data only**: roles
+(Admin/Instructor/Student), the admin-panel menus + permissions, and an admin user.
+**No demo users, categories, or courses** are seeded; the catalog starts empty and is
+filled by real instructors/admins through the app. The admin credentials come from
+`ADMIN_*` (dev default below) and must be changed for production.
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@veolms.local` | `Admin@123` |
-| Instructor | `instructor@veolms.local` | `Instructor@123` |
-| Student | `student@veolms.local` | `Student@123` |
+| Admin | `admin@veolms.local` | `Admin@123` (from `ADMIN_PASSWORD`) |
 
 List endpoints accept a `data` JSON query param: `{ search, sorting, dataLimit, pagination }`
 (search/sort fields are validated against the model). Login returns a JWT plus the

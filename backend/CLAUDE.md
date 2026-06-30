@@ -47,11 +47,10 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
   re-fetch). `unenroll` deletes the user's progress for the course in a transaction.
   Completion % is always computed live from lesson/progress counts.
 - Routers mounted in [routes.ts](src/routes.ts): `/category /course /section /lesson /enrollment /progress /media /payment /stats /contact`. Public (no auth): `/course/catalog`, `/course/getCourseById/:id` (optional auth), `/category/catalog`, `/lesson/getPlayback/:id` (optional auth, so free preview lessons play anonymously), `/contact`.
-- Demo logins (seeded, dev only): `instructor@veolms.local` / `Instructor@123`,
-  `student@veolms.local` / `Student@123`. A demo catalog (4 published courses incl. a free
-  one, each 2 sections × 5 lessons) is seeded too. Video lessons are seeded **without a
-  source** (video is upload-only, so there's nothing to seed); upload real clips from the
-  admin panel and they start playing.
+- Seeding is **bootstrap only** (runs on an empty DB): roles (Admin/Instructor/Student),
+  admin-panel menus + permissions, and an admin user (from `ADMIN_*`, dev default
+  `admin@veolms.local` / `Admin@123`). **No demo users, categories, or courses** are
+  seeded; the catalog starts empty and is filled by real instructors/admins via the app.
 - **Scope** (per the build challenge): payments → frontend → deploy. **No assessments/
   quizzes**: explicitly out of scope; do not build them.
 
@@ -71,7 +70,7 @@ Instructor-led catalog. Same entity-triad convention as the admin panel. Domain:
   (owner/admin, or published + preview/enrolled) and returns one of:
   `{source:'hls'}` (preferred; encrypted HLS, see below) or `{source:'r2'}` (short-lived
   presigned MP4 that falls back before transcode finishes / if ffmpeg absent). A video
-  lesson with no uploaded asset yet (e.g. the seeded demo) returns **404**.
+  lesson with no uploaded asset yet returns **404**.
 - **Encrypted HLS (anti-download) + ABR**, [services/hls-service.ts](src/services/hls-service.ts): after `confirmUpload`, a
   background `transcodeToHls(assetId)` uses **ffmpeg** (height probed via **ffprobe**) to
   produce an **adaptive multi-rendition** (360/480/720/1080 ≤ source) **AES-128-encrypted**

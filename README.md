@@ -107,7 +107,7 @@ cp .env.example .env        # then edit: at minimum set JWT_SECRET and your Post
 npm run dev                 # tsx watch on http://localhost:5005
 ```
 
-On an empty database the app seeds roles, an admin user, and a demo catalog (4 published courses, one of them free, each with 2 sections of 5 lessons). Seeded video lessons have no source on purpose (upload real clips from the admin panel and they start playing). Schema is created with `sequelize.sync` (alter in dev, create-only in prod); there are no migrations yet.
+On an empty database the app seeds only the essential bootstrap: roles (Admin/Instructor/Student), the admin-panel menus + permissions, and an admin user (from `ADMIN_*`). No sample courses or users are seeded; the catalog starts empty and is filled by real instructors/admins through the app. Schema is created with `sequelize.sync` (alter in dev, create-only in prod); there are no migrations yet.
 
 ### Frontend
 
@@ -149,21 +149,19 @@ They cover Razorpay payment + webhook signature verification, pricing rules (fre
 
 ---
 
-## Live URLs and demo credentials
+## Live URLs and admin login
 
 - **Backend API base (production):** `https://ptmsoftware.me/veolms-api`
   The API itself is mounted under `/api`, so endpoints are reached at `https://ptmsoftware.me/veolms-api/api/...` (for example `GET https://ptmsoftware.me/veolms-api/api/course/catalog`).
 - **Frontend (production):** `<your-frontend-url>`
 
-### Seeded demo logins
+### Seeded admin login
 
-These are seeded when the database is empty. They are **dev defaults and must be changed before any real deployment** (the admin password comes from `ADMIN_PASSWORD`).
+Only an admin user is seeded (on an empty database) so you can sign in and start creating content; everyone else self-registers (and can upgrade to instructor in-app). Its credentials come from `ADMIN_*` and **must be changed before any real deployment**.
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@veolms.local` | `Admin@123` |
-| Instructor | `instructor@veolms.local` | `Instructor@123` |
-| Student | `student@veolms.local` | `Student@123` |
+| Admin | `admin@veolms.local` | `Admin@123` (from `ADMIN_PASSWORD`) |
 
 ---
 
@@ -183,6 +181,6 @@ These are seeded when the database is empty. They are **dev defaults and must be
 - [ ] Frontend live URL: `<your-frontend-url>`
 - [ ] Backend live URL: `https://ptmsoftware.me/veolms-api` (API under `/api`)
 - [ ] GitHub repository: `<your-repo-url>`
-- [ ] Demo credentials verified on the live deployment (and admin password rotated)
+- [ ] Admin login verified on the live deployment (and admin password rotated)
 - [ ] Candidate contact details: `<your-name>`, `<your-email>`, `<your-phone-or-links>`
 - [ ] Why I want to join VeoLMS: `<your-statement>`

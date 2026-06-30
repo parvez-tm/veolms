@@ -5,7 +5,7 @@ import { Role } from '../routes/control/role/role-model';
 import { User } from '../routes/control/user/user-model';
 import { seedMenu } from './seeders-data/menu-seed';
 import { seedAdminUser } from './seeders-data/user-seed';
-import { seedLmsData } from './seeders-data/lms-seed';
+import { seedLmsRoles } from './seeders-data/lms-seed';
 
 /**
  * Authenticate, wire associations, sync the schema, and seed an empty database.
@@ -35,11 +35,11 @@ async function seedIfEmpty(): Promise<void> {
   await sequelize.transaction(async (transaction) => {
     const menus = await seedMenu(transaction);
     await seedAdminUser(menus, transaction);
-    await seedLmsData(menus, transaction);
+    await seedLmsRoles(menus, transaction);
   });
 
   console.log(
-    'Database seeded: roles (Admin/Instructor/Student), menus, demo users, demo catalog (4 courses)'
+    'Database seeded: roles (Admin/Instructor/Student), menus, admin user. Catalog starts empty.'
   );
 }
 

@@ -3,7 +3,7 @@
  *
  *   1. Drops every table + enum type in the Postgres `public` schema, then
  *      immediately recreates the schema (sequelize.sync) and reseeds (roles,
- *      menus, demo catalog), the same as a normal app boot, so no restart is needed.
+ *      menus, admin user), the same as a normal app boot, so no restart is needed.
  *   2. Deletes every object under the app's R2 prefixes.
  *
  * It reads the SAME config the app uses (config/env.ts), so it always targets
