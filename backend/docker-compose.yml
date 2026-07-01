@@ -10,8 +10,13 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
 
-      # Managed Postgres + Redis (set to your hosted instances)
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      # Managed Postgres + Redis (set to your hosted instances). The app builds
+      # the connection from these discrete vars; DATABASE_URL is also honored if set.
+      POSTGRES_HOST: ${POSTGRES_HOST:?set POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       DATABASE_SSL: ${DATABASE_SSL:-true}
       REDIS_URL: ${REDIS_URL:?set REDIS_URL}
 
