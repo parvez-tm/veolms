@@ -53,7 +53,7 @@ function SectionHeader({ title, hint }: { title: string; hint?: string }) {
 export function NewCoursePage() {
   const navigate = useNavigate()
   const create = useCreateCourse()
-  const { data: categories } = useCategories()
+  const { data: categories, isLoading: categoriesLoading } = useCategories()
 
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
@@ -200,6 +200,7 @@ export function NewCoursePage() {
                 value={categoryId}
                 onChange={setCategoryId}
                 placeholder="Choose a category"
+                loading={categoriesLoading}
                 options={(categories ?? []).map((c) => ({
                   value: String(c.id),
                   label: c.name,

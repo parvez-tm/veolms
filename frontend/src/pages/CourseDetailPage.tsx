@@ -13,12 +13,14 @@ import {
   Globe,
   CalendarDays,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useCourseDetail } from '@/features/courses/detail'
 import { useMyEnrollments, useCheckout } from '@/features/enrollment/api'
 import { useAuth } from '@/context/AuthContext'
 import { apiErrorMessage } from '@/lib/api'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, cn } from '@/lib/utils'
 import { formatDuration } from '@/lib/video'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +42,6 @@ export function CourseDetailPage() {
   const [preview, setPreview] = useState<Lesson | null>(null)
   const [buying, setBuying] = useState(false)
   const [error, setError] = useState('')
-
   if (isLoading) {
     return <div className="mx-auto max-w-5xl px-4 py-20 text-muted-foreground">Loading…</div>
   }
@@ -82,6 +83,11 @@ export function CourseDetailPage() {
   const outcomes = course.learningOutcomes ?? []
   const prerequisites = course.prerequisites ?? []
   const audience = course.whoThisIsFor ?? []
+
+  const previewLessons = lessons.filter((l) => l.isPreview && !!l.videoAssetId)
+  const previewIdx = preview ? previewLessons.findIndex((l) => l.id === preview.id) : -1
+  const prevLesson = previewIdx > 0 ? previewLessons[previewIdx - 1] : null
+  const nextLesson = previewIdx >= 0 && previewIdx < previewLessons.length - 1 ? previewLessons[previewIdx + 1] : null
 
   const onBuy = async () => {
     if (!isAuthenticated) {
@@ -132,26 +138,37 @@ export function CourseDetailPage() {
     <>
       {/* Hero */}
       <section className="relative isolate overflow-hidden bg-tint">
-        {course.banner && (
+        {course.banner ? (
           <>
             <img
               src={course.banner}
               alt=""
               aria-hidden
-              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover opacity-20"
+              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover"
             />
-            <div className="pointer-events-none absolute inset-0 -z-10 bg-tint/80" aria-hidden />
+            {/* gradient: left stays readable, right shows banner */}
+            <div
+              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-tint/95 via-tint/70 to-tint/30"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-tint/80 to-transparent"
+              aria-hidden
+            />
+          </>
+        ) : (
+          <>
+            {/* pastel blobs — only shown when there's no banner */}
+            <div
+              className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -bottom-24 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
+              aria-hidden
+            />
           </>
         )}
-        {/* pastel blobs */}
-        <div
-          className="pointer-events-none absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#ffb59c] opacity-70 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-24 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#a7ecdd] opacity-70 blur-3xl"
-          aria-hidden
-        />
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-16">
           {/* Left: info */}
           <div className="lg:col-span-2">
@@ -331,7 +348,11 @@ export function CourseDetailPage() {
                     return (
                       <li
                         key={lesson.id}
-                        className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-tint"
+                        onClick={() => playable && setPreview(lesson)}
+                        className={cn(
+                          'flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-tint',
+                          playable && 'cursor-pointer'
+                        )}
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary-strong">
@@ -393,7 +414,36 @@ export function CourseDetailPage() {
         className="max-w-3xl"
       >
         {preview ? (
-          <PreviewPlayer lessonId={preview.id} />
+          <>
+            <PreviewPlayer lessonId={preview.id} />
+
+            {/* Prev / Next / Enroll row */}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                disabled={!prevLesson}
+                onClick={() => prevLesson && setPreview(prevLesson)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+
+              {nextLesson ? (
+                <Button onClick={() => setPreview(nextLesson)}>
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : !enrolled && !canManage ? (
+                <Button onClick={onBuy} disabled={buying}>
+                  {buying
+                    ? 'Processing…'
+                    : isFree
+                      ? 'Enroll for free'
+                      : `Enroll · ${formatPrice(effectivePrice, course.currency)}`}
+                </Button>
+              ) : null}
+            </div>
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">Preview not available.</p>
         )}

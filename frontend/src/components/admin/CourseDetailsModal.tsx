@@ -44,7 +44,7 @@ export function CourseDetailsModal({
   course: Course
 }) {
   const update = useUpdateCourse(course.id)
-  const { data: categories } = useCategories()
+  const { data: categories, isLoading: categoriesLoading } = useCategories()
   const [title, setTitle] = useState(course.title)
   const [subtitle, setSubtitle] = useState(course.subtitle ?? '')
   const [description, setDescription] = useState(course.description ?? '')
@@ -162,6 +162,7 @@ export function CourseDetailsModal({
               value={categoryId}
               onChange={setCategoryId}
               placeholder="Choose a category"
+              loading={categoriesLoading}
               options={(categories ?? []).map((c) => ({
                 value: String(c.id),
                 label: c.name,

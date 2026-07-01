@@ -14,6 +14,8 @@ interface SelectProps {
   options: SelectOption[]
   id?: string
   placeholder?: string
+  disabled?: boolean
+  loading?: boolean
   /** Extra classes for the trigger + options (e.g. `capitalize`). */
   className?: string
 }
@@ -30,6 +32,8 @@ export function Select({
   options,
   id,
   placeholder = 'Select…',
+  disabled = false,
+  loading = false,
   className,
 }: SelectProps) {
   const [open, setOpen] = React.useState(false)
@@ -50,6 +54,7 @@ export function Select({
   }
 
   const openMenu = () => {
+    if (disabled || loading) return
     place()
     setActive(Math.max(0, options.findIndex((o) => o.value === value)))
     setOpen(true)
@@ -114,16 +119,17 @@ export function Select({
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
+        disabled={disabled || loading}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onKeyDown}
         className={cn(
-          'flex h-11 w-full items-center justify-between gap-2 rounded-xl border-2 border-input bg-card px-3.5 py-2 text-left text-sm font-medium transition-all focus-visible:border-ink focus-visible:shadow-[3px_3px_0_var(--ink)] focus-visible:outline-none',
+          'flex h-11 w-full items-center justify-between gap-2 rounded-xl border-2 border-input bg-card px-3.5 py-2 text-left text-sm font-medium transition-all focus-visible:border-ink focus-visible:shadow-[3px_3px_0_var(--ink)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           open && 'border-ink shadow-[3px_3px_0_var(--ink)]',
           className
         )}
       >
         <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-          {selected ? selected.label : placeholder}
+          {loading ? 'Loading…' : selected ? selected.label : placeholder}
         </span>
         <ChevronDown
           className={cn(
@@ -144,34 +150,41 @@ export function Select({
               top: coords.top,
               left: coords.left,
               width: coords.width,
+              zIndex: 9999,
             }}
-            className="z-[60] max-h-60 overflow-auto rounded-xl border-2 border-ink bg-card p-1.5 shadow-[4px_5px_0_var(--ink)]"
+            className="max-h-60 overflow-auto rounded-xl border-2 border-ink bg-card p-1.5 shadow-[4px_5px_0_var(--ink)]"
           >
-            {options.map((opt, i) => {
-              const isSelected = opt.value === value
-              return (
-                <li key={opt.value} role="option" aria-selected={isSelected}>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => choose(opt.value)}
-                    onMouseEnter={() => setActive(i)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors',
-                      i === active
-                        ? 'bg-secondary text-primary-strong'
-                        : 'text-foreground hover:bg-tint',
-                      className
-                    )}
-                  >
-                    {opt.label}
-                    {isSelected && (
-                      <Check className="h-4 w-4 shrink-0 text-primary-strong" />
-                    )}
-                  </button>
-                </li>
-              )
-            })}
+            {options.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-muted-foreground select-none">
+                No options available
+              </li>
+            ) : (
+              options.map((opt, i) => {
+                const isSelected = opt.value === value
+                return (
+                  <li key={opt.value} role="option" aria-selected={isSelected}>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => choose(opt.value)}
+                      onMouseEnter={() => setActive(i)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors',
+                        i === active
+                          ? 'bg-secondary text-primary-strong'
+                          : 'text-foreground hover:bg-tint',
+                        className
+                      )}
+                    >
+                      {opt.label}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary-strong" />
+                      )}
+                    </button>
+                  </li>
+                )
+              })
+            )}
           </ul>,
           document.body
         )}
