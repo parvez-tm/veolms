@@ -54,7 +54,7 @@ pipeline {
     FE_IMAGE      = 'veolms-frontend'
     FE_BUILD_CTX  = 'frontend'                          // Dockerfile lives in ./frontend
     FE_DEPLOY_DIR = '/opt/veolms/web'                   // host nginx web root — set to yours
-    VITE_API_URL  = 'https://ptmsoftware.me/veolms-api' // baked into the build
+    VITE_API_URL  = 'https://ptmsoftware.me/veolms-api/api' // baked into the build
   }
 
   stages {
