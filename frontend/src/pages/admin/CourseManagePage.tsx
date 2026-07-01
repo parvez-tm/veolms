@@ -348,7 +348,7 @@ export function CourseManagePage() {
 
           {sections.length === 0 && (
             <p className="pop px-4 py-12 text-center font-medium text-muted-foreground">
-              No sections yet. Add your first section below.
+              No sections yet. Add the first section below.
             </p>
           )}
         </div>

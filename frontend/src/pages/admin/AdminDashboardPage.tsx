@@ -9,6 +9,8 @@ import {
   Users,
   GraduationCap,
   Activity,
+  Tag,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useManagedCourses, useStats } from '@/features/admin/api'
@@ -117,7 +119,7 @@ export function AdminDashboardPage() {
         </h1>
         <p className="mt-2 font-medium text-muted-foreground">
           {isAdmin
-            ? 'Manage every course on the platform.'
+            ? 'Manage courses, users and access across the platform.'
             : 'Manage your courses and content.'}
         </p>
       </div>
@@ -170,36 +172,68 @@ export function AdminDashboardPage() {
           Quick actions
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickAction
-            to="/admin/courses/new"
-            icon={Sparkles}
-            tone="bg-primary"
-            title="Create a course"
-            desc="Start a new course from scratch."
-          />
-          <QuickAction
-            to="/admin/courses"
-            icon={BookOpen}
-            tone="bg-teal"
-            title="Manage courses"
-            desc="Edit content, lessons and pricing."
-          />
           {isAdmin ? (
-            <QuickAction
-              to="/admin/sales"
-              icon={Receipt}
-              tone="bg-amber"
-              title="Sales & revenue"
-              desc="Track purchases and enrollments."
-            />
+            <>
+              <QuickAction
+                to="/admin/users"
+                icon={Users}
+                tone="bg-primary"
+                title="Manage users"
+                desc="Create accounts and assign roles."
+              />
+              <QuickAction
+                to="/admin/categories"
+                icon={Tag}
+                tone="bg-teal"
+                title="Categories"
+                desc="Organize the course catalog."
+              />
+              <QuickAction
+                to="/admin/access"
+                icon={ShieldCheck}
+                tone="bg-violet"
+                title="Access control"
+                desc="Manage roles and permissions."
+              />
+              <QuickAction
+                to="/admin/courses"
+                icon={BookOpen}
+                tone="bg-amber"
+                title="Moderate courses"
+                desc="Review, unpublish or remove courses."
+              />
+              <QuickAction
+                to="/admin/sales"
+                icon={Receipt}
+                tone="bg-teal"
+                title="Sales & revenue"
+                desc="Track purchases and enrollments."
+              />
+            </>
           ) : (
-            <QuickAction
-              to={`/courses?instructor=${user?.id}`}
-              icon={Globe}
-              tone="bg-violet"
-              title="Visit your storefront"
-              desc="See how learners view your published courses."
-            />
+            <>
+              <QuickAction
+                to="/admin/courses/new"
+                icon={Sparkles}
+                tone="bg-primary"
+                title="Create a course"
+                desc="Start a new course from scratch."
+              />
+              <QuickAction
+                to="/admin/courses"
+                icon={BookOpen}
+                tone="bg-teal"
+                title="Manage courses"
+                desc="Edit content, lessons and pricing."
+              />
+              <QuickAction
+                to={`/courses?instructor=${user?.id}`}
+                icon={Globe}
+                tone="bg-violet"
+                title="Visit your storefront"
+                desc="See how learners view your published courses."
+              />
+            </>
           )}
         </div>
       </div>
@@ -224,15 +258,23 @@ export function AdminDashboardPage() {
                 <BookOpen className="h-8 w-8" />
               </span>
               <p className="mt-5 text-lg font-bold tracking-tight">No courses yet</p>
-              <p className="mt-1 max-w-xs text-sm font-medium text-muted-foreground">
-                Create your first course and start adding lessons.
-              </p>
-              <Button asChild className="mt-6">
-                <Link to="/admin/courses/new">
-                  <Sparkles className="h-4 w-4" />
-                  Create your first course
-                </Link>
-              </Button>
+              {isAdmin ? (
+                <p className="mt-1 max-w-xs text-sm font-medium text-muted-foreground">
+                  Courses created by instructors will show up here.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 max-w-xs text-sm font-medium text-muted-foreground">
+                    Create your first course and start adding lessons.
+                  </p>
+                  <Button asChild className="mt-6">
+                    <Link to="/admin/courses/new">
+                      <Sparkles className="h-4 w-4" />
+                      Create your first course
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <ul className="divide-y-2 divide-foreground/5">
@@ -277,32 +319,62 @@ export function AdminDashboardPage() {
           )}
         </div>
 
-        {/* Getting started */}
-        <div className="pop p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary-strong" />
-            <h2 className="text-lg font-bold tracking-tight">Get started</h2>
+        {/* Right rail: platform management for admins, getting-started for authors */}
+        {isAdmin ? (
+          <div className="pop p-6">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary-strong" />
+              <h2 className="text-lg font-bold tracking-tight">Manage platform</h2>
+            </div>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              Operator tools for running VeoLMS.
+            </p>
+            <div className="mt-5 space-y-2.5">
+              {[
+                { to: '/admin/users', icon: Users, label: 'Users & roles' },
+                { to: '/admin/categories', icon: Tag, label: 'Categories' },
+                { to: '/admin/access', icon: ShieldCheck, label: 'Access control' },
+                { to: '/admin/sales', icon: Receipt, label: 'Sales & revenue' },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="group flex items-center gap-3 rounded-xl border-2 border-transparent px-3 py-2.5 text-sm font-semibold transition-all hover:border-ink hover:bg-tint"
+                >
+                  <item.icon className="h-4 w-4 text-primary-strong" />
+                  {item.label}
+                  <ArrowRight className="ml-auto h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                </Link>
+              ))}
+            </div>
           </div>
-          <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Four steps to your first published course.
-          </p>
-          <ol className="mt-5 space-y-3.5">
-            {STEPS.map((step, i) => (
-              <li key={step} className="flex items-center gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-secondary font-grotesk text-xs font-bold text-primary-strong">
-                  {i + 1}
-                </span>
-                <span className="text-sm font-semibold">{step}</span>
-              </li>
-            ))}
-          </ol>
-          <Button asChild variant="outline" className="mt-6 w-full">
-            <Link to="/admin/courses/new">
-              <Sparkles className="h-4 w-4" />
-              New course
-            </Link>
-          </Button>
-        </div>
+        ) : (
+          <div className="pop p-6">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary-strong" />
+              <h2 className="text-lg font-bold tracking-tight">Get started</h2>
+            </div>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              Four steps to your first published course.
+            </p>
+            <ol className="mt-5 space-y-3.5">
+              {STEPS.map((step, i) => (
+                <li key={step} className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-secondary font-grotesk text-xs font-bold text-primary-strong">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-semibold">{step}</span>
+                </li>
+              ))}
+            </ol>
+            <Button asChild variant="outline" className="mt-6 w-full">
+              <Link to="/admin/courses/new">
+                <Sparkles className="h-4 w-4" />
+                New course
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

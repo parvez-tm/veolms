@@ -7,6 +7,14 @@ import { ApiError, PermissionRequest } from '../../../types/interface';
 import { flagsToColumns } from '../../../helpers/permission-mapper';
 import { invalidateRolePermissions } from '../../../services/permission-cache-service';
 
+/**
+ * NOTE (scope): these per-menu permission flags (canRead/canCreate/...) are
+ * persisted and drive the login `permissions` map, but they are NOT yet used to
+ * authorize requests. Domain access is enforced by role NAME via
+ * `requireRole(...)` + ownership (`isAdminOrOwner`). Saving a set only bumps the
+ * role's permission version (forcing its users to re-login). Wiring these flags
+ * into route guards / the SPA nav is planned future work, out of current scope.
+ */
 const withRoleAndMenu = [
   { model: Role, as: 'role' },
   { model: Menu, as: 'menu' },

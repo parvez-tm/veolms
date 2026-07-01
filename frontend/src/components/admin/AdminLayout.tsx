@@ -6,6 +6,9 @@ import {
   ArrowLeft,
   LogOut,
   Plus,
+  Users,
+  Tag,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { userDisplayName } from '@/lib/auth'
@@ -21,7 +24,12 @@ export function AdminLayout() {
     { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/admin/courses', label: 'Courses', icon: BookOpen, end: false },
     ...(isAdmin
-      ? [{ to: '/admin/sales', label: 'Sales', icon: Receipt, end: false }]
+      ? [
+          { to: '/admin/users', label: 'Users', icon: Users, end: false },
+          { to: '/admin/categories', label: 'Categories', icon: Tag, end: false },
+          { to: '/admin/access', label: 'Access', icon: ShieldCheck, end: false },
+          { to: '/admin/sales', label: 'Sales', icon: Receipt, end: false },
+        ]
       : []),
   ]
 
@@ -34,9 +42,15 @@ export function AdminLayout() {
           ? 'Manage course'
           : pathname.startsWith('/admin/courses')
             ? 'Courses'
-            : pathname.startsWith('/admin/sales')
-              ? 'Sales'
-              : 'Workspace'
+            : pathname.startsWith('/admin/users')
+              ? 'Users'
+              : pathname.startsWith('/admin/categories')
+                ? 'Categories'
+                : pathname.startsWith('/admin/access')
+                  ? 'Access control'
+                  : pathname.startsWith('/admin/sales')
+                    ? 'Sales'
+                    : 'Workspace'
 
   // Show a real name when known, otherwise fall back to the role label, never
   // the email/username.
@@ -104,12 +118,16 @@ export function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <Link to="/admin/courses/new">
-                <Plus className="h-4 w-4" />
-                New course
-              </Link>
-            </Button>
+            {/* Course authoring is an instructor action; admins moderate, they
+                don't author, so the create shortcut is instructor-only. */}
+            {!isAdmin && (
+              <Button asChild size="sm" className="hidden sm:inline-flex">
+                <Link to="/admin/courses/new">
+                  <Plus className="h-4 w-4" />
+                  New course
+                </Link>
+              </Button>
+            )}
 
             <span className="hidden h-8 w-0.5 rounded-full bg-border sm:block" />
 

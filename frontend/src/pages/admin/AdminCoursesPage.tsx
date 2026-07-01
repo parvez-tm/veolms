@@ -27,9 +27,9 @@ export function AdminCoursesPage() {
         </Decor>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <span className="eyebrow">Admin</span>
+            <span className="eyebrow">{isAdmin ? 'Admin' : 'Instructor'}</span>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Your{' '}
+              {isAdmin ? 'All' : 'Your'}{' '}
               <span className="relative whitespace-nowrap text-primary">
                 courses
                 <svg
@@ -49,15 +49,19 @@ export function AdminCoursesPage() {
               </span>
             </h1>
             <p className="mt-3 font-medium text-muted-foreground">
-              {isAdmin ? 'All courses on the platform.' : 'Courses you own.'}
+              {isAdmin
+                ? 'Every course on the platform — review, unpublish or remove.'
+                : 'Courses you own.'}
             </p>
           </div>
-          <Button asChild>
-            <Link to="/admin/courses/new">
-              <Plus className="h-4 w-4" />
-              New course
-            </Link>
-          </Button>
+          {!isAdmin && (
+            <Button asChild>
+              <Link to="/admin/courses/new">
+                <Plus className="h-4 w-4" />
+                New course
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -72,15 +76,23 @@ export function AdminCoursesPage() {
               <BookOpen className="h-8 w-8 text-primary-strong" />
             </div>
             <p className="mt-4 font-semibold text-foreground">No courses yet.</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create your first course to get started.
-            </p>
-            <Button asChild className="mt-5">
-              <Link to="/admin/courses/new">
-                <Plus className="h-4 w-4" />
-                Create your first course
-              </Link>
-            </Button>
+            {isAdmin ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Courses created by instructors will appear here.
+              </p>
+            ) : (
+              <>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create your first course to get started.
+                </p>
+                <Button asChild className="mt-5">
+                  <Link to="/admin/courses/new">
+                    <Plus className="h-4 w-4" />
+                    Create your first course
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <ul className="divide-y divide-border">

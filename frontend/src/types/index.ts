@@ -112,3 +112,50 @@ export interface ListResponse<T> {
   pagination?: Pagination
   message?: string
 }
+
+// ---- Admin control panel ----
+
+/** A user row as returned by /user/getAllUsers (password never included). */
+export interface AdminUser {
+  id: number
+  userName: string
+  firstName: string
+  lastName: string
+  email: string
+  roleId: number
+  phone?: string | null
+  dateOfBirth?: string | null
+  address?: string | null
+  role?: Role
+  createdAt?: string
+}
+
+export interface Role {
+  id: number
+  roleName: string
+  lastPermissionUpdate?: string
+  createdAt?: string
+}
+
+/** An admin-panel menu node (RBAC is expressed as permissions over these). */
+export interface MenuItem {
+  id: number
+  parentId: number | null
+  label: string
+  routeLink: string
+  icon?: string | null
+  checkList?: string | null
+  isBoth?: boolean
+}
+
+/** A role's permission over one menu (internal can* columns). */
+export interface PermissionEntry {
+  id: number
+  roleId: number
+  menuId: number
+  canRead: boolean
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
+  menu?: MenuItem
+}

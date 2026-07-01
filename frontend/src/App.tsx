@@ -19,6 +19,9 @@ import { LearnPage } from '@/pages/LearnPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
 import { AdminSalesPage } from '@/pages/admin/AdminSalesPage'
+import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
+import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
+import { AdminAccessPage } from '@/pages/admin/AdminAccessPage'
 import { NewCoursePage } from '@/pages/admin/NewCoursePage'
 import { CourseManagePage } from '@/pages/admin/CourseManagePage'
 import { NotFoundPage, ForbiddenPage } from '@/pages/NotFoundPage'
@@ -58,9 +61,19 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="courses" element={<AdminCoursesPage />} />
-          <Route path="courses/new" element={<NewCoursePage />} />
+          {/* Authoring a new course is instructor-only; admins moderate existing ones. */}
+          <Route element={<ProtectedRoute roles={['Instructor']} />}>
+            <Route path="courses/new" element={<NewCoursePage />} />
+          </Route>
           <Route path="courses/:id" element={<CourseManagePage />} />
-          <Route path="sales" element={<AdminSalesPage />} />
+
+          {/* Operator-only pages (users, categories, RBAC, sales) */}
+          <Route element={<ProtectedRoute roles={['Admin']} />}>
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="access" element={<AdminAccessPage />} />
+            <Route path="sales" element={<AdminSalesPage />} />
+          </Route>
         </Route>
       </Route>
       </Routes>
