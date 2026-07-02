@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { ThumbnailField, type ThumbnailValue } from '@/components/admin/ThumbnailField'
-import { TrailerField, type TrailerValue } from '@/components/admin/TrailerField'
 import { apiErrorMessage } from '@/lib/api'
 import { useUpdateCourse } from '@/features/admin/manage'
 import { useCategories } from '@/features/courses/api'
@@ -54,9 +53,6 @@ export function CourseDetailsModal({
   })
   const [banner, setBanner] = useState<ThumbnailValue>({
     assetId: course.bannerAssetId ?? null,
-  })
-  const [trailer, setTrailer] = useState<TrailerValue>({
-    assetId: course.trailerAssetId ?? null,
   })
   const [level, setLevel] = useState<(typeof LEVELS)[number]>(course.level)
   const [categoryId, setCategoryId] = useState(
@@ -109,7 +105,6 @@ export function CourseDetailsModal({
         description: description.trim() || null,
         thumbnailAssetId: thumbnail.assetId,
         bannerAssetId: banner.assetId,
-        trailerAssetId: trailer.assetId,
         level,
         price,
         discountPrice,
@@ -201,16 +196,6 @@ export function CourseDetailsModal({
             value={banner}
             onChange={setBanner}
             previewFallback={course.banner}
-            hideLabel
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Trailer video</Label>
-          <TrailerField
-            value={trailer}
-            onChange={setTrailer}
-            courseId={course.id}
             hideLabel
           />
         </div>
