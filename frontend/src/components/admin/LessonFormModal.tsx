@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { uploadVideo } from '@/lib/upload'
-import { apiErrorMessage } from '@/lib/api'
+import api, { apiErrorMessage } from '@/lib/api'
 import { useAddLesson, useUpdateLesson, type LessonInput } from '@/features/admin/manage'
 import type { Lesson, LessonResource } from '@/types'
 
@@ -58,12 +58,19 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Remembers a video already uploaded in an earlier submit attempt (keyed to the
+  // exact File). If the *save* then fails, re-submitting reuses this instead of
+  // uploading the same video a second time.
+  const uploadedRef = useRef<
+    { file: File; assetId: number; duration: number | null } | null
+  >(null)
 
   const reset = () => {
     setFile(null)
     setProgress(null)
     setError('')
     setBusy(false)
+    uploadedRef.current = null
   }
 
   const addResource = () =>
@@ -99,11 +106,19 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
       let videoDurationSec: number | null | undefined
       if (type === 'video') {
         if (file) {
-          // Probe the duration client-side before/while uploading.
-          videoDurationSec = await probeVideoDuration(file)
-          setProgress(0)
-          videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
-          setProgress(null)
+          if (uploadedRef.current?.file === file) {
+            // This exact file was already uploaded in a prior attempt whose save
+            // failed — reuse it so the video isn't uploaded a second time.
+            videoAssetId = uploadedRef.current.assetId
+            videoDurationSec = uploadedRef.current.duration
+          } else {
+            // Probe the duration client-side before/while uploading.
+            videoDurationSec = await probeVideoDuration(file)
+            setProgress(0)
+            videoAssetId = await uploadVideo(file, Number(courseId), setProgress)
+            setProgress(null)
+            uploadedRef.current = { file, assetId: videoAssetId, duration: videoDurationSec }
+          }
         } else if (!editing) {
           setError('Choose a video file to upload')
           setBusy(false)
@@ -218,7 +233,18 @@ export function LessonFormModal({ open, onClose, courseId, sectionId, lesson }: 
                 type="file"
                 accept="video/*"
                 className="sr-only"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  // Choosing a different file invalidates a prior (unsaved)
+                  // upload — drop it and best-effort delete it so it isn't left
+                  // orphaned in storage.
+                  if (uploadedRef.current && uploadedRef.current.file !== f) {
+                    const staleId = uploadedRef.current.assetId
+                    uploadedRef.current = null
+                    void api.delete(`/media/${staleId}`).catch(() => undefined)
+                  }
+                  setFile(f)
+                }}
               />
             </label>
             {progress !== null && (

@@ -34,7 +34,7 @@ export function CourseDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, isAuthenticated, isAdmin } = useAuth()
+  const { user, isAuthenticated, isAdmin, role } = useAuth()
   const { data: course, isLoading, isError } = useCourseDetail(id)
   const { data: enrollments } = useMyEnrollments()
   const startCheckout = useCheckout()
@@ -61,6 +61,10 @@ export function CourseDetailPage() {
   const isFree = !course.price || course.price <= 0
   const enrolled = enrollments?.some((e) => e.courseId === course.id) ?? false
   const canManage = isAdmin || (!!user && course.instructorId === user.id)
+  // "All courses" should return staff to their workspace list, not the public
+  // catalog — an instructor/admin reaches this page via "View on site".
+  const coursesHref =
+    role === 'Admin' || role === 'Instructor' ? '/admin/courses' : '/courses'
   const instructor = course.instructor
     ? `${course.instructor.firstName ?? ''} ${course.instructor.lastName ?? ''}`.trim() ||
       course.instructor.userName ||
@@ -177,7 +181,7 @@ export function CourseDetailPage() {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-16">
           {/* Left: info */}
           <div className="lg:col-span-2">
-            <BackLink to="/courses">All courses</BackLink>
+            <BackLink to={coursesHref}>All courses</BackLink>
             <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
               {course.title}
             </h1>
