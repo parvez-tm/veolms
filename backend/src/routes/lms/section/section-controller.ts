@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Section } from './section-model';
 import { Lesson } from '../lesson/lesson-model';
 import { Course } from '../course/course-model';
+import { Enrollment } from '../enrollment/enrollment-model';
 import { sequelize } from '../../../db/sequelize';
 import { ApiError } from '../../../types/interface';
 import { isAdminOrOwner } from '../../../middleware/role-middleware';
@@ -14,13 +15,23 @@ export const getSectionsByCourse = async (
 ): Promise<void> => {
   const courseId = parseId(req.params.courseId, 'courseId');
 
-  // Draft course content is visible only to its instructor or an Admin.
   const course = await Course.findByPk(courseId);
   if (!course) {
     throw new ApiError(404, 'Course not found');
   }
-  if (course.status !== 'published' && !isAdminOrOwner(req.user, course.instructorId)) {
+  // Draft course content is visible only to its instructor or an Admin.
+  const owner = isAdminOrOwner(req.user, course.instructorId);
+  if (course.status !== 'published' && !owner) {
     throw new ApiError(403, 'This course is not available');
+  }
+
+  // Enrollment gates protected lesson content — mirror getCourseById exactly:
+  // non-owners who aren't enrolled get curriculum metadata + preview lessons only.
+  let enrolled = false;
+  if (!owner && req.user) {
+    enrolled = !!(await Enrollment.findOne({
+      where: { userId: req.user.id, courseId },
+    }));
   }
 
   const sections = await Section.findAll({
@@ -31,7 +42,31 @@ export const getSectionsByCourse = async (
     ],
     include: [{ model: Lesson, as: 'lessons' }],
   });
-  res.status(200).json({ data: sections, message: 'Sections fetched successfully' });
+
+  type LessonJSON = {
+    isPreview: boolean;
+    videoAssetId: number | null;
+    content: string | null;
+  };
+  const data = sections.map(
+    (s) => s.toJSON() as { lessons?: LessonJSON[]; [key: string]: unknown }
+  );
+
+  // Withhold the video source + notes of non-preview lessons from non-owner,
+  // non-enrolled viewers, so this endpoint can't be used to read paid course
+  // material for free (the paywall bypass this closes).
+  if (!owner && !enrolled) {
+    for (const section of data) {
+      for (const lesson of section.lessons ?? []) {
+        if (!lesson.isPreview) {
+          lesson.videoAssetId = null;
+          lesson.content = null;
+        }
+      }
+    }
+  }
+
+  res.status(200).json({ data, message: 'Sections fetched successfully' });
 };
 
 export const addSection = async (req: Request, res: Response): Promise<void> => {
