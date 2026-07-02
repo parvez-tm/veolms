@@ -134,25 +134,30 @@ export function CourseDetailPage() {
     )
   }
 
+  const hasBanner = !!course.banner
+
   return (
     <>
       {/* Hero */}
-      <section className="relative isolate overflow-hidden bg-tint">
+      <section
+        className={cn(
+          'relative isolate overflow-hidden',
+          hasBanner ? 'bg-ink text-white' : 'bg-tint'
+        )}
+      >
         {course.banner ? (
           <>
             <img
               src={course.banner}
               alt=""
               aria-hidden
-              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover"
+              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover [filter:saturate(1.2)_contrast(1.05)]"
             />
-            {/* gradient: left stays readable, right shows banner */}
+            {/* Dark cinematic scrim: an overall darken so the copy stays readable,
+                plus a heavier wash on the left — the banner shows through top-right. */}
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-ink/70" aria-hidden />
             <div
-              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-tint/95 via-tint/70 to-tint/30"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-tint/80 to-transparent"
+              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink/85 via-ink/45 to-transparent"
               aria-hidden
             />
           </>
@@ -177,11 +182,11 @@ export function CourseDetailPage() {
               {course.title}
             </h1>
             {course.subtitle && (
-              <p className="mt-4 max-w-2xl text-lg font-medium text-muted-foreground">
+              <p className={cn('mt-4 max-w-2xl text-lg font-medium', hasBanner ? 'text-white/75' : 'text-muted-foreground')}>
                 {course.subtitle}
               </p>
             )}
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className={cn('mt-5 flex flex-wrap items-center gap-3 text-sm', hasBanner ? 'text-white/80' : 'text-muted-foreground')}>
               <span className="rounded-full bg-secondary px-3 py-1 font-semibold capitalize text-primary-strong">
                 {course.level}
               </span>
@@ -192,7 +197,7 @@ export function CourseDetailPage() {
               )}
               <span className="font-medium">By {instructor}</span>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-muted-foreground">
+            <div className={cn('mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium', hasBanner ? 'text-white/70' : 'text-muted-foreground')}>
               <span className="inline-flex items-center gap-1.5">
                 <BookOpen className="h-4 w-4" /> {lessons.length} lessons
               </span>
@@ -218,7 +223,7 @@ export function CourseDetailPage() {
             {course.description && (
               <div className="mt-9">
                 <span className="eyebrow">About this course</span>
-                <p className="mt-3 max-w-2xl whitespace-pre-line leading-relaxed text-foreground/90">
+                <p className={cn('mt-3 max-w-2xl whitespace-pre-line leading-relaxed', hasBanner ? 'text-white/85' : 'text-foreground/90')}>
                   {course.description}
                 </p>
               </div>
@@ -229,7 +234,7 @@ export function CourseDetailPage() {
                 <span className="eyebrow text-teal">What you'll learn</span>
                 <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
                   {outcomes.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm font-medium text-foreground/90">
+                    <li key={i} className={cn('flex items-start gap-2 text-sm font-medium', hasBanner ? 'text-white/85' : 'text-foreground/90')}>
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
                       {item}
                     </li>
@@ -241,7 +246,7 @@ export function CourseDetailPage() {
             {prerequisites.length > 0 && (
               <div className="mt-9 max-w-2xl">
                 <span className="eyebrow">Prerequisites</span>
-                <ul className="mt-3 list-inside list-disc space-y-1.5 font-medium text-foreground/90">
+                <ul className={cn('mt-3 list-inside list-disc space-y-1.5 font-medium', hasBanner ? 'text-white/85' : 'text-foreground/90')}>
                   {prerequisites.map((item, i) => (
                     <li key={i}>{item}</li>
                   ))}
@@ -252,7 +257,7 @@ export function CourseDetailPage() {
             {audience.length > 0 && (
               <div className="mt-9 max-w-2xl">
                 <span className="eyebrow text-violet">Who this course is for</span>
-                <ul className="mt-3 list-inside list-disc space-y-1.5 font-medium text-foreground/90">
+                <ul className={cn('mt-3 list-inside list-disc space-y-1.5 font-medium', hasBanner ? 'text-white/85' : 'text-foreground/90')}>
                   {audience.map((item, i) => (
                     <li key={i}>{item}</li>
                   ))}
@@ -263,7 +268,7 @@ export function CourseDetailPage() {
             {(course.tags ?? []).length > 0 && (
               <div className="mt-9 flex flex-wrap gap-2">
                 {(course.tags ?? []).map((tag) => (
-                  <span key={tag} className="rounded-full bg-tint px-3 py-1 text-xs font-bold text-muted-foreground">
+                  <span key={tag} className={cn('rounded-full px-3 py-1 text-xs font-bold', hasBanner ? 'bg-white/10 text-white/80' : 'bg-tint text-muted-foreground')}>
                     #{tag}
                   </span>
                 ))}

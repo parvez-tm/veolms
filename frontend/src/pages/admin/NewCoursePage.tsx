@@ -124,8 +124,9 @@ export function NewCoursePage() {
         prerequisites: linesToList(prerequisites),
         whoThisIsFor: linesToList(whoFor),
       })
-      navigate('/admin/courses', { replace: true })
-      void course
+      // Go straight to the new course's manage/edit page (add sections, lessons,
+      // publish) rather than the list. replace: so Back doesn't reopen the form.
+      navigate(`/admin/courses/${course.id}`, { replace: true })
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not create course'))
     }
